@@ -1,0 +1,11 @@
+.grid-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}

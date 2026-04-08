@@ -1,0 +1,7 @@
+venv/
+saved_videos/
+__pycache__/
+*.pyc
+.env
+ig_session.json
+download_log.txt

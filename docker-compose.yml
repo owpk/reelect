@@ -1,0 +1,15 @@
+services:
+  pipeline:
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - ./cookies.txt:/cookies/cookies.txt:ro
+      - ./saved_videos:/app/saved_videos
+
+  viewer:
+    build: ./viewer
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./saved_videos:/app/saved_videos:ro

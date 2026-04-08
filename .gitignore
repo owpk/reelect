@@ -1,0 +1,7 @@
+venv/
+cookies.txt
+*.log
+saved_videos/
+.env
+.claude/settings*
+download_log*
