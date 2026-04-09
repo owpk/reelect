@@ -80,9 +80,27 @@ Everything runs on your machine. No cloud APIs, no subscriptions.
 
 - **Docker & Docker Compose**
 - **[LM Studio](https://lmstudio.ai)** with a vision-capable model loaded, server running on port `1234`
-  - Recommended: `Qwen3.5-9B` or `Llama-3.2-11B-Vision-Instruct`
 - A `cookies.txt` exported from your browser while logged into Instagram
   - Install [Cookie-Editor](https://cookie-editor.com/), open instagram.com, export in **Netscape** format
+
+### Choosing a model
+
+Model selection is the most hardware-dependent part of the setup — there's no universal recommendation. A few guidelines:
+
+| Hardware | What works |
+|---|---|
+| Apple Silicon (M1–M4) | Qwen2.5-VL-7B, Qwen3-8B, Gemma-3-12B |
+| NVIDIA GPU (8 GB VRAM) | Qwen2.5-VL-7B-Instruct, Llama-3.2-11B-Vision |
+| NVIDIA GPU (16 GB+ VRAM) | Qwen2.5-VL-32B, Llama-3.2-90B-Vision |
+| CPU only | Keep it small: Qwen2.5-VL-3B or 7B with aggressive quantization (Q4) |
+
+**What to look for:**
+- The model must support **vision input** (image frames from the video)
+- Bigger isn't always better — a well-quantized 7B often outperforms a bloated 32B that barely fits in VRAM
+- If the model supports **thinking/reasoning** (Qwen3, DeepSeek-R1), set `LM_STUDIO_THINKING_BUDGET=512` to cap reasoning tokens and avoid the model spending all its token budget on thinking instead of the JSON output
+- Set `LM_STUDIO_MAX_TOKENS_METADATA` high enough (8192+) for reasoning models — they consume tokens for thinking before writing the response
+
+**Practical tip:** start with the smallest vision model that runs at a comfortable speed on your machine, then upgrade if the output quality isn't good enough.
 
 ### 2. Install
 
