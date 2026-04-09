@@ -3,7 +3,7 @@
 > Your saved Instagram Reels — transcribed, structured, and actually useful.
 
 <!-- screenshot: main viewer grid with actionable cards -->
-![Reelect viewer](.github/assets/viewer.png)
+![Reelect viewer](.github/assets/viewer.jpg)
 
 ---
 
@@ -74,32 +74,6 @@ Everything runs on your machine. No cloud APIs, no subscriptions.
 
 ---
 
-<!-- screenshot: card with actionable content + pipeline panel -->
-![Actionable card and pipeline](.github/assets/pipeline.png)
-
-## UI
-
-- **Grid** — hover to play, category badge, actionable content shown directly on the card
-- **Sidebar** — filter by category with counts
-- **Search** — full-text across summaries, transcripts, and tags
-- **Modal** — full actionable content, transcript, visual description
-- **Pipeline panel** — trigger a run and watch live logs without leaving the browser
-
----
-
-## Tech stack
-
-| | Tool |
-|---|---|
-| Video download | [gallery-dl](https://github.com/mikf/gallery-dl) |
-| Audio transcription | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) — local, free |
-| Frame extraction | ffmpeg |
-| AI analysis | Local vision LLM via [LM Studio](https://lmstudio.ai) |
-| Web UI | React + Vite + FastAPI |
-| Runtime | Docker |
-
----
-
 ## Getting started
 
 ### 1. Prerequisites
@@ -126,7 +100,7 @@ INSTAGRAM_USERNAME=your_handle
 LM_STUDIO_URL=http://host.docker.internal:1234/v1
 LM_STUDIO_MODEL=qwen3.5-9b
 
-CRON_SCHEDULE=0 */12 * * *
+CRON_SCHEDULE="0 */12 * * *"
 ```
 
 See `.env.example` for all options.
@@ -144,29 +118,6 @@ The pipeline runs on schedule automatically. You can also trigger it manually fr
 
 ---
 
-## Project structure
-
-```
-reelect/
-├── Dockerfile               # pipeline container
-├── docker-compose.yml
-├── download.sh              # fetches new videos via gallery-dl
-├── analyze.py               # analyzes one video: whisper + LLM
-├── batch_analyze.py         # parallel analysis of all pending videos
-├── pipeline.sh              # orchestrator: download → analyze
-├── trigger_server.py        # micro HTTP server for UI-triggered runs
-├── entrypoint.sh            # starts cron + trigger server in container
-├── .env.example
-├── viewer/
-│   ├── Dockerfile
-│   ├── api/main.py          # FastAPI: videos API + pipeline proxy
-│   └── frontend/            # React + Vite
-└── saved_videos/            # runtime data, gitignored
-    ├── raw/                 # mp4 + transcript/visual cache per video
-    └── meta/                # json metadata per video
-```
-
----
 
 ## Configuration reference
 
@@ -187,6 +138,5 @@ reelect/
 
 ## Notes
 
-- Transcript and visual description are **cached next to each video file** — if analysis fails partway through, the next run picks up where it left off without re-running Whisper or the vision pass.
 - `cookies.txt` and `.env` are gitignored and never committed.
 - The Whisper model is baked into the Docker image — transcription is fully offline.
