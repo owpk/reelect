@@ -1,3 +1,5 @@
-anthropic
+openai
 faster-whisper
 gallery-dl
+fastapi
+uvicorn[standard]

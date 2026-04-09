@@ -11,4 +11,6 @@ echo "$CRON_SCHEDULE . /etc/environment; /app/pipeline.sh /cookies/cookies.txt >
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') | INFO | cron started with schedule: $CRON_SCHEDULE"
 
+uvicorn trigger_server:app --host 0.0.0.0 --port 8001 &
+
 exec cron -f

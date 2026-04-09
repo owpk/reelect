@@ -3,6 +3,8 @@ services:
     build: .
     env_file: .env
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./cookies.txt:/cookies/cookies.txt:ro
       - ./saved_videos:/app/saved_videos
@@ -11,5 +13,9 @@ services:
     build: ./viewer
     ports:
       - "8000:8000"
+    environment:
+      - PIPELINE_URL=http://pipeline:8001
     volumes:
       - ./saved_videos:/app/saved_videos:ro
+    depends_on:
+      - pipeline

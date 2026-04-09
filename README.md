@@ -1,128 +1,174 @@
-# Instagram Saved Reels Downloader & Analyzer
+# Reelect
 
-A self-hosted pipeline that automatically downloads your saved Instagram Reels and uses AI to transcribe, describe, and categorize each video — so you can search and organize your saved content by topic.
+> Turn your saved Instagram Reels into a searchable, categorized knowledge base — running entirely on your machine.
 
-## What it does
+<!-- screenshot: main viewer grid -->
+![Reelect viewer](.github/assets/viewer.png)
+
+---
+
+## The problem
+
+You save a reel. Then another. And another. A week later you can't find that cooking technique, that travel spot, that workout routine. Instagram's saved feed is a black hole — no search, no categories, no memory.
+
+## What Reelect does
+
+Reelect runs in the background and automatically:
+
+1. **Downloads** new videos from your Instagram Saved collection
+2. **Transcribes** the audio locally with Whisper (no API cost)
+3. **Analyzes** frames and generates a summary, category, and tags using a local LLM via LM Studio
+4. **Surfaces** everything in a clean web UI — searchable by content, filterable by category
+
+Every video becomes a structured entry you can actually find later.
 
 ```
-Instagram Saved →  download.sh  →  saved_videos/raw/*.mp4
-                                          ↓
-                   analyze.py   →  saved_videos/meta/*.json
-                                   {transcript, summary, category, tags}
+Instagram Saved
+      ↓
+  download.sh  →  saved_videos/raw/instagram/<user>/<id>.mp4
+                                    +  <id>.transcript.txt  (Whisper cache)
+                                    +  <id>.visual.txt      (LLM vision cache)
+      ↓
+  batch_analyze.py  →  saved_videos/meta/<id>.json
+                        {transcript, visual_description, summary, category, tags}
+      ↓
+  viewer  →  http://localhost:8000
 ```
 
-1. **Download** — `download.sh` fetches only new videos from your Instagram Saved collection using [gallery-dl](https://github.com/mikf/gallery-dl), skipping anything already downloaded.
-2. **Analyze** — `analyze.py` processes each new video:
-   - Extracts audio → transcribes with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (runs locally, no API cost)
-   - Samples frames → describes visually with Claude
-   - Combines both → Claude generates a summary, category, and tags
-3. **Orchestrate** — `pipeline.sh` runs both steps in sequence. Point a cron job at it and forget about it.
-
-### Example output (`saved_videos/meta/<id>.json`)
+### Example metadata output
 
 ```json
 {
-  "id": "3581234567890",
-  "filename": "saved_videos/raw/3581234567890.mp4",
-  "analyzed_at": "2026-04-08T12:00:00Z",
-  "transcript": "Today I'm making a classic carbonara...",
-  "visual_description": "A person cooking pasta in a pan on a stovetop...",
-  "summary": "A quick tutorial on making authentic Roman carbonara. The creator shows the technique for emulsifying eggs without scrambling them.",
+  "id": "3762391109024717972",
+  "filename": "saved_videos/raw/instagram/zaika_stories/3762391109024717972.mp4",
+  "analyzed_at": "2026-04-08T12:26:37Z",
+  "transcript": "Если хотите сэкономить 15 тысяч рублей...",
+  "visual_description": "A person preparing a burnt basque cheesecake...",
+  "summary": "Рецепт сан-себастьяна без специального оборудования — только венчик и духовка.",
   "category": "cooking",
-  "tags": ["pasta", "italian", "carbonara", "recipe", "tutorial"]
+  "tags": ["cheesecake", "выпечка", "рецепт", "десерт"]
 }
 ```
 
+---
+
 ## Tech stack
 
-| Component | Tool |
+| | Tool |
 |---|---|
 | Video download | [gallery-dl](https://github.com/mikf/gallery-dl) |
-| Audio transcription | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (base model, CPU) |
+| Audio transcription | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) — local, free |
 | Frame extraction | ffmpeg |
-| AI analysis | [Claude API](https://www.anthropic.com/) (claude-opus-4-6) |
+| AI analysis | Local LLM via [LM Studio](https://lmstudio.ai) (vision model) |
+| Web UI | React + FastAPI |
 | Runtime | Docker |
+
+Everything runs locally. No cloud APIs required.
+
+---
 
 ## Getting started
 
-### Prerequisites
+### 1. Prerequisites
 
-- Docker & Docker Compose
-- An Anthropic API key → [console.anthropic.com](https://console.anthropic.com)
-- A `cookies.txt` file exported from your browser while logged into Instagram (Netscape format)
+- **Docker & Docker Compose**
+- **[LM Studio](https://lmstudio.ai)** with a vision-capable model loaded and server running on port `1234`
+  - Recommended: `Qwen3.5-9B` or `Llama-3.2-11B-Vision-Instruct`
+- A `cookies.txt` exported from your browser while logged into Instagram
+  - Install [Cookie-Editor](https://cookie-editor.com/), open instagram.com, export in **Netscape** format
 
-> To export cookies: install the [Cookie-Editor](https://cookie-editor.com/) extension, open instagram.com, and export in **Netscape** format.
-
-### Setup
+### 2. Install
 
 ```bash
-git clone https://github.com/your-username/instagram-dw.git
-cd instagram-dw
-
+git clone https://github.com/your-username/reelect.git
+cd reelect
 cp .env.example .env
-# fill in your values
 ```
 
-**.env**
-```
-ANTHROPIC_API_KEY=sk-ant-...
-INSTAGRAM_USERNAME=your_instagram_handle
-```
-
-### Run
+### 3. Configure `.env`
 
 ```bash
-# place your cookies.txt in the project root, then:
+INSTAGRAM_USERNAME=your_handle
+
+LM_STUDIO_URL=http://host.docker.internal:1234/v1
+LM_STUDIO_MODEL=qwen3.5-9b
+
+CRON_SCHEDULE=0 */12 * * *
+```
+
+See `.env.example` for all options including token limits, concurrency, and native video input.
+
+### 4. Run
+
+```bash
+# place cookies.txt in the project root, then:
 docker compose build
-docker compose run --rm pipeline
+docker compose up -d
 ```
 
-Downloaded videos land in `saved_videos/raw/`, metadata in `saved_videos/meta/`.
+- **Viewer** → [http://localhost:8000](http://localhost:8000)
+- **Pipeline** runs automatically on the configured cron schedule
+- Or trigger it manually from the UI with the **▶ Run pipeline** button
 
-### Automate with cron
+<!-- screenshot: pipeline panel with logs -->
+![Pipeline panel](.github/assets/pipeline.png)
 
-Run the pipeline every 12 hours:
+---
 
-```bash
-crontab -e
-```
+## UI
 
-```
-0 */12 * * * cd /path/to/instagram-dw && docker compose run --rm pipeline >> cron.log 2>&1
-```
+- **Grid view** — all videos with hover-to-play, category badge, summary, tags
+- **Sidebar** — filter by category with counts
+- **Search** — full-text across summaries, transcripts, and tags
+- **Detail modal** — full transcript, visual description, metadata
+- **Pipeline panel** — trigger runs and watch live logs from the browser
+
+---
 
 ## Project structure
 
 ```
-instagram-dw/
-├── Dockerfile
+reelect/
+├── Dockerfile               # pipeline container
 ├── docker-compose.yml
 ├── requirements.txt
-├── download.sh          # step 1: download new videos via gallery-dl
-├── analyze.py           # step 2: transcribe + describe + categorize one video
-├── pipeline.sh          # orchestrator: runs download → analyze loop
+├── download.sh              # fetches new videos via gallery-dl
+├── analyze.py               # analyzes a single video (whisper + LLM)
+├── batch_analyze.py         # parallel analysis of all pending videos
+├── pipeline.sh              # orchestrator: download → analyze
+├── trigger_server.py        # micro HTTP server for UI-triggered runs
+├── entrypoint.sh            # starts cron + trigger server
 ├── .env.example
-└── saved_videos/        # created at runtime, gitignored
-    ├── raw/             # mp4 files
-    ├── meta/            # json metadata per video
-    └── downloaded_archive.txt
+├── viewer/                  # web UI
+│   ├── Dockerfile
+│   ├── api/main.py          # FastAPI — videos API + pipeline proxy
+│   └── frontend/            # React + Vite
+└── saved_videos/            # runtime data, gitignored
+    ├── raw/                 # downloaded mp4s (organized by instagram username)
+    └── meta/                # json metadata per video
 ```
 
-Each script can be run independently:
+---
 
-```bash
-# download only
-./download.sh cookies.txt
+## Configuration reference
 
-# analyze a specific video
-python analyze.py saved_videos/raw/some_video.mp4
+| Variable | Default | Description |
+|---|---|---|
+| `INSTAGRAM_USERNAME` | — | Your Instagram handle |
+| `CRON_SCHEDULE` | `0 */12 * * *` | How often to run the pipeline |
+| `LM_STUDIO_URL` | `http://host.docker.internal:1234/v1` | LM Studio endpoint |
+| `LM_STUDIO_MODEL` | — | Exact model name from LM Studio |
+| `LM_STUDIO_NATIVE_VIDEO` | `false` | Send full video instead of frames |
+| `LM_STUDIO_THINKING_BUDGET` | `-1` | Reasoning token budget (-1 = unlimited) |
+| `LM_STUDIO_MAX_TOKENS_VISUAL` | `4096` | Max tokens for frame/video description |
+| `LM_STUDIO_MAX_TOKENS_METADATA` | `8192` | Max tokens for summary/category/tags |
+| `MAX_WORKERS` | `3` | Parallel Whisper + ffmpeg workers |
+| `LM_STUDIO_CONCURRENCY` | `1` | Parallel LLM requests |
 
-# full pipeline
-./pipeline.sh cookies.txt
-```
+---
 
 ## Notes
 
-- `downloaded_archive.txt` tracks what has already been downloaded — safe to run the pipeline repeatedly.
-- The Whisper `base` model is baked into the Docker image (~150 MB) so no internet is needed for transcription.
-- `cookies.txt` and `.env` are gitignored and mounted as Docker volumes — never committed.
+- Intermediate results (transcript, visual description) are **cached next to each video file** — if analysis fails midway, it resumes from where it stopped on the next run.
+- `cookies.txt` and `.env` are gitignored and never committed.
+- The Whisper model is baked into the Docker image — transcription works fully offline.
