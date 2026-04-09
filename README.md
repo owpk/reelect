@@ -1,54 +1,89 @@
 # Reelect
 
-> Turn your saved Instagram Reels into a searchable, categorized knowledge base — running entirely on your machine.
+> Your saved Instagram Reels — transcribed, structured, and actually useful.
 
-<!-- screenshot: main viewer grid -->
+<!-- screenshot: main viewer grid with actionable cards -->
 ![Reelect viewer](.github/assets/viewer.png)
 
 ---
 
 ## The problem
 
-You save a reel. Then another. And another. A week later you can't find that cooking technique, that travel spot, that workout routine. Instagram's saved feed is a black hole — no search, no categories, no memory.
+You save a reel with a recipe, a useful app, a film recommendation. Three days later it's buried somewhere in your saved feed with no way to find it. Instagram's saved section has no search, no categories, no text — just an endless scroll of thumbnails.
 
-## What Reelect does
+Reelect fixes that.
 
-Reelect runs in the background and automatically:
+---
 
-1. **Downloads** new videos from your Instagram Saved collection
-2. **Transcribes** the audio locally with Whisper (no API cost)
-3. **Analyzes** frames and generates a summary, category, and tags using a local LLM via LM Studio
-4. **Surfaces** everything in a clean web UI — searchable by content, filterable by category
+## The main idea — Actionable content extraction
 
-Every video becomes a structured entry you can actually find later.
+Most reels worth saving contain something concrete: a recipe, a step-by-step guide, a film to watch, a tool to try. Reelect listens to the audio, looks at the frames, and extracts that information into structured text you can actually read and use — without opening Instagram at all.
+
+```
+🍳 recipe      → ingredients + step-by-step instructions
+📋 guide       → numbered steps, tips, how-to
+🎬 recommendation → film / series / book + why it's worth it
+🔗 resource    → app / website / tool + what it does
+```
+
+If a reel contains nothing actionable — just entertainment or opinion — it still gets a summary and tags, but no actionable block is generated.
+
+### Example
+
+A reel where someone talks about making a burnt basque cheesecake becomes:
+
+```json
+{
+  "summary": "Рецепт сан-себастьяна без миксера за 40 минут.",
+  "category": "cooking",
+  "tags": ["cheesecake", "выпечка", "рецепт", "десерт"],
+  "actionable": {
+    "type": "recipe",
+    "title": "Сан-Себастьян чизкейк",
+    "content": "Ингредиенты: 600г сливочного сыра, 5 яиц, 200г сахара, 300мл сливок\n\n1. Смешать все ингредиенты венчиком\n2. Вылить в форму, застеленную бумагой\n3. Выпекать 30-40 мин при 220°C"
+  }
+}
+```
+
+The card in the viewer shows the recipe directly — no need to watch the video.
+
+---
+
+## How it works
 
 ```
 Instagram Saved
       ↓
-  download.sh  →  saved_videos/raw/instagram/<user>/<id>.mp4
-                                    +  <id>.transcript.txt  (Whisper cache)
-                                    +  <id>.visual.txt      (LLM vision cache)
+  download.sh      →  saved_videos/raw/instagram/<user>/<id>.mp4
+                                            + <id>.transcript.txt  (Whisper cache)
+                                            + <id>.visual.txt      (vision cache)
       ↓
-  batch_analyze.py  →  saved_videos/meta/<id>.json
-                        {transcript, visual_description, summary, category, tags}
+  batch_analyze.py →  saved_videos/meta/<id>.json
+                       { summary, category, tags, actionable }
       ↓
-  viewer  →  http://localhost:8000
+  viewer           →  http://localhost:8000
 ```
 
-### Example metadata output
+1. **Download** — fetches only new videos from your Instagram Saved via [gallery-dl](https://github.com/mikf/gallery-dl)
+2. **Transcribe** — audio extracted with ffmpeg, transcribed locally with [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
+3. **Analyze** — frames sampled and sent alongside the transcript to a local vision LLM via [LM Studio](https://lmstudio.ai)
+4. **Extract** — the LLM produces summary, category, tags, and actionable content in one pass
+5. **View** — clean web UI with search, category filter, and live pipeline control
 
-```json
-{
-  "id": "3762391109024717972",
-  "filename": "saved_videos/raw/instagram/zaika_stories/3762391109024717972.mp4",
-  "analyzed_at": "2026-04-08T12:26:37Z",
-  "transcript": "Если хотите сэкономить 15 тысяч рублей...",
-  "visual_description": "A person preparing a burnt basque cheesecake...",
-  "summary": "Рецепт сан-себастьяна без специального оборудования — только венчик и духовка.",
-  "category": "cooking",
-  "tags": ["cheesecake", "выпечка", "рецепт", "десерт"]
-}
-```
+Everything runs on your machine. No cloud APIs, no subscriptions.
+
+---
+
+<!-- screenshot: card with actionable content + pipeline panel -->
+![Actionable card and pipeline](.github/assets/pipeline.png)
+
+## UI
+
+- **Grid** — hover to play, category badge, actionable content shown directly on the card
+- **Sidebar** — filter by category with counts
+- **Search** — full-text across summaries, transcripts, and tags
+- **Modal** — full actionable content, transcript, visual description
+- **Pipeline panel** — trigger a run and watch live logs without leaving the browser
 
 ---
 
@@ -59,11 +94,9 @@ Instagram Saved
 | Video download | [gallery-dl](https://github.com/mikf/gallery-dl) |
 | Audio transcription | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) — local, free |
 | Frame extraction | ffmpeg |
-| AI analysis | Local LLM via [LM Studio](https://lmstudio.ai) (vision model) |
-| Web UI | React + FastAPI |
+| AI analysis | Local vision LLM via [LM Studio](https://lmstudio.ai) |
+| Web UI | React + Vite + FastAPI |
 | Runtime | Docker |
-
-Everything runs locally. No cloud APIs required.
 
 ---
 
@@ -72,7 +105,7 @@ Everything runs locally. No cloud APIs required.
 ### 1. Prerequisites
 
 - **Docker & Docker Compose**
-- **[LM Studio](https://lmstudio.ai)** with a vision-capable model loaded and server running on port `1234`
+- **[LM Studio](https://lmstudio.ai)** with a vision-capable model loaded, server running on port `1234`
   - Recommended: `Qwen3.5-9B` or `Llama-3.2-11B-Vision-Instruct`
 - A `cookies.txt` exported from your browser while logged into Instagram
   - Install [Cookie-Editor](https://cookie-editor.com/), open instagram.com, export in **Netscape** format
@@ -87,7 +120,7 @@ cp .env.example .env
 
 ### 3. Configure `.env`
 
-```bash
+```
 INSTAGRAM_USERNAME=your_handle
 
 LM_STUDIO_URL=http://host.docker.internal:1234/v1
@@ -96,32 +129,18 @@ LM_STUDIO_MODEL=qwen3.5-9b
 CRON_SCHEDULE=0 */12 * * *
 ```
 
-See `.env.example` for all options including token limits, concurrency, and native video input.
+See `.env.example` for all options.
 
 ### 4. Run
 
 ```bash
-# place cookies.txt in the project root, then:
 docker compose build
 docker compose up -d
 ```
 
-- **Viewer** → [http://localhost:8000](http://localhost:8000)
-- **Pipeline** runs automatically on the configured cron schedule
-- Or trigger it manually from the UI with the **▶ Run pipeline** button
+Open [http://localhost:8000](http://localhost:8000).
 
-<!-- screenshot: pipeline panel with logs -->
-![Pipeline panel](.github/assets/pipeline.png)
-
----
-
-## UI
-
-- **Grid view** — all videos with hover-to-play, category badge, summary, tags
-- **Sidebar** — filter by category with counts
-- **Search** — full-text across summaries, transcripts, and tags
-- **Detail modal** — full transcript, visual description, metadata
-- **Pipeline panel** — trigger runs and watch live logs from the browser
+The pipeline runs on schedule automatically. You can also trigger it manually from the UI with the **▶ Run pipeline** button.
 
 ---
 
@@ -131,20 +150,19 @@ docker compose up -d
 reelect/
 ├── Dockerfile               # pipeline container
 ├── docker-compose.yml
-├── requirements.txt
 ├── download.sh              # fetches new videos via gallery-dl
-├── analyze.py               # analyzes a single video (whisper + LLM)
+├── analyze.py               # analyzes one video: whisper + LLM
 ├── batch_analyze.py         # parallel analysis of all pending videos
 ├── pipeline.sh              # orchestrator: download → analyze
 ├── trigger_server.py        # micro HTTP server for UI-triggered runs
-├── entrypoint.sh            # starts cron + trigger server
+├── entrypoint.sh            # starts cron + trigger server in container
 ├── .env.example
-├── viewer/                  # web UI
+├── viewer/
 │   ├── Dockerfile
-│   ├── api/main.py          # FastAPI — videos API + pipeline proxy
+│   ├── api/main.py          # FastAPI: videos API + pipeline proxy
 │   └── frontend/            # React + Vite
 └── saved_videos/            # runtime data, gitignored
-    ├── raw/                 # downloaded mp4s (organized by instagram username)
+    ├── raw/                 # mp4 + transcript/visual cache per video
     └── meta/                # json metadata per video
 ```
 
@@ -155,20 +173,20 @@ reelect/
 | Variable | Default | Description |
 |---|---|---|
 | `INSTAGRAM_USERNAME` | — | Your Instagram handle |
-| `CRON_SCHEDULE` | `0 */12 * * *` | How often to run the pipeline |
+| `CRON_SCHEDULE` | `0 */12 * * *` | Pipeline run schedule |
 | `LM_STUDIO_URL` | `http://host.docker.internal:1234/v1` | LM Studio endpoint |
-| `LM_STUDIO_MODEL` | — | Exact model name from LM Studio |
-| `LM_STUDIO_NATIVE_VIDEO` | `false` | Send full video instead of frames |
-| `LM_STUDIO_THINKING_BUDGET` | `-1` | Reasoning token budget (-1 = unlimited) |
-| `LM_STUDIO_MAX_TOKENS_VISUAL` | `4096` | Max tokens for frame/video description |
-| `LM_STUDIO_MAX_TOKENS_METADATA` | `8192` | Max tokens for summary/category/tags |
-| `MAX_WORKERS` | `3` | Parallel Whisper + ffmpeg workers |
-| `LM_STUDIO_CONCURRENCY` | `1` | Parallel LLM requests |
+| `LM_STUDIO_MODEL` | — | Model name (must match LM Studio exactly) |
+| `LM_STUDIO_NATIVE_VIDEO` | `false` | Send full video to model instead of frames |
+| `LM_STUDIO_THINKING_BUDGET` | `512` | Reasoning token limit for thinking models |
+| `LM_STUDIO_MAX_TOKENS_VISUAL` | `4096` | Max tokens for visual description |
+| `LM_STUDIO_MAX_TOKENS_METADATA` | `8192` | Max tokens for metadata + actionable |
+| `MAX_WORKERS` | `3` | Parallel whisper + ffmpeg workers |
+| `LM_STUDIO_CONCURRENCY` | `1` | Concurrent LLM requests |
 
 ---
 
 ## Notes
 
-- Intermediate results (transcript, visual description) are **cached next to each video file** — if analysis fails midway, it resumes from where it stopped on the next run.
+- Transcript and visual description are **cached next to each video file** — if analysis fails partway through, the next run picks up where it left off without re-running Whisper or the vision pass.
 - `cookies.txt` and `.env` are gitignored and never committed.
-- The Whisper model is baked into the Docker image — transcription works fully offline.
+- The Whisper model is baked into the Docker image — transcription is fully offline.

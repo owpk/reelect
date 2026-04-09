@@ -80,6 +80,45 @@
   color: var(--text-muted);
 }
 
+.modal-actionable {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-actionable-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-actionable-type {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.modal-actionable-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.modal-actionable-content {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  font-family: inherit;
+  margin: 0;
+}
+
 .modal-summary {
   font-size: 14px;
   line-height: 1.6;

@@ -212,21 +212,36 @@ def generate_metadata(transcript: str, visual: str) -> dict:
     visual_block = f"VISUAL DESCRIPTION:\n{visual}" if visual else "VISUAL DESCRIPTION: (not available)"
     transcript_block = f"TRANSCRIPT:\n{transcript}" if transcript else "TRANSCRIPT: (no speech)"
 
-    prompt = f"""You are analyzing a short Instagram Reel saved by a user.
+    prompt = f"""You are analyzing a short Instagram Reel saved by a user who wants to extract useful information from it.
 
-        {transcript_block}
-        
-        {visual_block}
-        
-        Based on the content above, return a JSON object with exactly these fields:
-        - "summary": 2-3 sentence description of the video. Write in the same language as the transcript if present, otherwise in English.
-        - "category": exactly one lowercase label from this list: cooking, travel, fitness, tech, comedy, art, news, music, education, lifestyle, fashion, sports, animals, motivation, other
-        - "tags": array of 3-6 specific lowercase tags relevant to the content
-        
-        Example of the expected output format:
-        {{"summary": "A quick recipe tutorial showing how to make a cheesecake at home without special equipment.", "category": "cooking", "tags": ["cheesecake", "recipe", "baking", "dessert"]}}
-        
-        Return only the JSON object. No markdown, no explanation, no code fences."""
+{transcript_block}
+
+{visual_block}
+
+Return a JSON object with exactly these fields:
+
+"summary": 1-2 sentence description of what the video is about. Use the same language as the transcript if present, otherwise English.
+
+"category": exactly one lowercase label from: cooking, travel, fitness, tech, comedy, art, news, music, education, lifestyle, fashion, sports, animals, motivation, other
+
+"tags": array of 3-6 specific lowercase tags
+
+"actionable": extract ONLY if the video contains concrete, reusable information the user can act on. Otherwise set to null.
+  Supported types:
+  - "recipe"         — cooking recipe. Extract: title, ingredients list, step-by-step instructions. Only include what is explicitly mentioned.
+  - "guide"          — how-to, tutorial, life hack, tip. Extract: title + numbered steps or key points.
+  - "recommendation" — film, series, book, podcast, music. Extract: title, type (film/series/book/etc), brief reason why it was recommended.
+  - "resource"       — website, app, tool, product, place. Extract: name, what it is, why useful.
+
+  Format for actionable:
+  {{"type": "recipe", "title": "...", "content": "..."}}
+
+  Set to null for: entertainment, comedy, vlogs, opinion pieces, motivational content without specific steps.
+
+Example output for a recipe video:
+{{"summary": "Автор показывает как приготовить сан-себастьян без миксера за 40 минут.", "category": "cooking", "tags": ["cheesecake", "рецепт", "выпечка", "десерт"], "actionable": {{"type": "recipe", "title": "Сан-Себастьян чизкейк", "content": "Ингредиенты: 600г сливочного сыра, 5 яиц, 200г сахара, 300мл сливок, 2 ст.л. муки\\n\\nШаги:\\n1. Смешать все ингредиенты венчиком\\n2. Вылить в форму, застеленную бумагой\\n3. Выпекать 30-40 мин при 220°C"}}}}
+
+Return only the JSON object. No markdown, no explanation, no code fences."""
 
     text = _lm_chat(
         messages=[{"role": "user", "content": prompt}],

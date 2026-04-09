@@ -2,12 +2,21 @@ import { useEffect } from "react";
 import { categoryColor } from "./Sidebar.jsx";
 import "./Modal.css";
 
+const ACTIONABLE_ICON = {
+  recipe: "🍳",
+  guide: "📋",
+  recommendation: "🎬",
+  resource: "🔗",
+};
+
 export default function Modal({ video, onClose }) {
   useEffect(() => {
     const handler = (e) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  const { actionable } = video;
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -39,6 +48,17 @@ export default function Modal({ video, onClose }) {
               {new Date(video.analyzed_at).toLocaleDateString()}
             </span>
           </div>
+
+          {actionable && (
+            <div className="modal-actionable">
+              <div className="modal-actionable-header">
+                <span>{ACTIONABLE_ICON[actionable.type] ?? "✦"}</span>
+                <span className="modal-actionable-type">{actionable.type}</span>
+                <span className="modal-actionable-title">{actionable.title}</span>
+              </div>
+              <pre className="modal-actionable-content">{actionable.content}</pre>
+            </div>
+          )}
 
           <p className="modal-summary">{video.summary}</p>
 
