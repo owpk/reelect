@@ -48,14 +48,14 @@
 }
 
 .card-body {
-  padding: 12px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .card-summary {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--text);
   line-height: 1.5;
   display: -webkit-box;
@@ -67,23 +67,23 @@
 .card-actionable {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px;
+  border-radius: 6px;
+  padding: 7px;
 }
 
 .actionable-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
-.actionable-icon { font-size: 14px; flex-shrink: 0; }
+.actionable-icon { font-size: 11px; flex-shrink: 0; }
 
 .actionable-type {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -92,7 +92,7 @@
 }
 
 .actionable-title {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
@@ -101,11 +101,11 @@
 }
 
 .actionable-preview {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   line-height: 1.5;
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: pre-line;
@@ -114,13 +114,13 @@
 .card-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
 }
 
 .tag {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--accent);
   background: #1e1b2e;
-  padding: 2px 7px;
+  padding: 1px 5px;
   border-radius: 20px;
 }

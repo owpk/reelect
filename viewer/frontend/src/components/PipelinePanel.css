@@ -1,25 +1,28 @@
 .pipeline {
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 8px;
 }
 
-.pipeline-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 24px;
+.pipeline-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0 0 2px;
 }
 
 .pipeline-status {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -34,18 +37,19 @@
   50% { opacity: 0.4; }
 }
 
-.status-label { font-size: 13px; color: var(--text-muted); }
+.status-label { font-size: 12px; color: var(--text-muted); }
 .last-run { font-size: 11px; color: var(--text-muted); }
 
-.pipeline-actions { display: flex; gap: 8px; }
+.pipeline-actions { display: flex; flex-direction: column; gap: 6px; }
 
 .btn-run {
-  padding: 6px 14px;
+  width: 100%;
+  padding: 7px 0;
   background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: opacity 0.15s;
@@ -54,24 +58,26 @@
 .btn-run:not(:disabled):hover { opacity: 0.85; }
 
 .btn-logs {
-  padding: 6px 12px;
+  width: 100%;
+  padding: 6px 0;
   background: var(--surface2);
   color: var(--text-muted);
   border: 1px solid var(--border);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
 }
 .btn-logs:hover { color: var(--text); }
 
 .log-terminal {
-  max-height: 260px;
+  max-height: 200px;
   overflow-y: auto;
   background: #0a0a0a;
-  border-top: 1px solid var(--border);
-  padding: 12px 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
   font-family: "JetBrains Mono", "Fira Code", monospace;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.6;
 }
 

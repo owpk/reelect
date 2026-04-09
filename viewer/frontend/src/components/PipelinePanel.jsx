@@ -56,26 +56,23 @@ export default function PipelinePanel() {
 
   return (
     <div className="pipeline">
-      <div className="pipeline-bar">
-        <div className="pipeline-status">
-          <span className={`status-dot ${running ? "running" : "idle"}`} />
-          <span className="status-label">{running ? "Running..." : "Idle"}</span>
-          {lastRun && !running && (
-            <span className="last-run">
-              last: {new Date(lastRun).toLocaleString()}
-            </span>
-          )}
-        </div>
-        <div className="pipeline-actions">
-          {logs.length > 0 && (
-            <button className="btn-logs" onClick={() => setOpen((o) => !o)}>
-              {open ? "Hide logs" : "Show logs"}
-            </button>
-          )}
-          <button className="btn-run" onClick={handleRun} disabled={running}>
-            {running ? "Running..." : "▶ Run pipeline"}
+      <div className="pipeline-title">Pipeline</div>
+      <div className="pipeline-status">
+        <span className={`status-dot ${running ? "running" : "idle"}`} />
+        <span className="status-label">{running ? "Running..." : "Idle"}</span>
+      </div>
+      {lastRun && !running && (
+        <span className="last-run">last: {new Date(lastRun).toLocaleString()}</span>
+      )}
+      <div className="pipeline-actions">
+        <button className="btn-run" onClick={handleRun} disabled={running}>
+          {running ? "Running..." : "▶ Run pipeline"}
+        </button>
+        {logs.length > 0 && (
+          <button className="btn-logs" onClick={() => setOpen((o) => !o)}>
+            {open ? "Hide logs" : "Show logs"}
           </button>
-        </div>
+        )}
       </div>
 
       {open && logs.length > 0 && (

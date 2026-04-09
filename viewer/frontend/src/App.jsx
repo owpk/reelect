@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import Sidebar from "./components/Sidebar.jsx";
 import VideoGrid from "./components/VideoGrid.jsx";
 import Modal from "./components/Modal.jsx";
-import PipelinePanel from "./components/PipelinePanel.jsx";
 import "./App.css";
 
 export default function App() {
@@ -66,7 +65,6 @@ export default function App() {
           <VideoGrid videos={filtered} onSelect={setSelected} />
         )}
       </main>
-      <PipelinePanel />
       {selected && <Modal video={selected} onClose={() => setSelected(null)} />}
     </div>
   );

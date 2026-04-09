@@ -54,3 +54,9 @@
   font-size: 12px;
   color: var(--text-muted);
 }
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 8px;
+}

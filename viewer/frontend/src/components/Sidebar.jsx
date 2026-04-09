@@ -1,3 +1,4 @@
+import PipelinePanel from "./PipelinePanel.jsx";
 import "./Sidebar.css";
 
 const CATEGORY_COLORS = {
@@ -42,6 +43,8 @@ export default function Sidebar({ categories, total, selected, onSelect }) {
           <span className="cat-count">{count}</span>
         </button>
       ))}
+      <div className="sidebar-divider" />
+      <PipelinePanel />
     </aside>
   );
 }
