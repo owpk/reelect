@@ -1,6 +1,7 @@
 # Reelect
 
 > Your saved Instagram Reels — transcribed, structured, and actually useful.
+> Runs entirely on your machine. No cloud. No API keys. No cost per request.
 
 <!-- screenshot: main viewer grid with actionable cards -->
 ![Reelect viewer](.github/assets/viewer.jpg)
@@ -70,7 +71,7 @@ Instagram Saved
 4. **Extract** — the LLM produces summary, category, tags, and actionable content in one pass
 5. **View** — clean web UI with search, category filter, and live pipeline control
 
-Everything runs on your machine. No cloud APIs, no subscriptions.
+**Everything runs on your machine.** Audio is transcribed by Whisper locally. Video frames are analyzed by a local LLM via LM Studio. No data leaves your computer, no API keys required, no cost per video — just your hardware doing the work.
 
 ---
 
@@ -124,6 +125,8 @@ CRON_SCHEDULE="0 */12 * * *"
 See `.env.example` for all options.
 
 ### 4. Run
+
+> The first launch may take a while if you've saved many reels :)
 
 ```bash
 docker compose build
