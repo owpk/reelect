@@ -84,7 +84,7 @@ async def pipeline_stream():
             async with client.stream("GET", f"{PIPELINE_URL}/stream") as r:
                 async for line in r.aiter_lines():
                     if line:
-                        yield f"{line}\n"
+                        yield f"{line}\n\n"
     return StreamingResponse(
         generate(),
         media_type="text/event-stream",
