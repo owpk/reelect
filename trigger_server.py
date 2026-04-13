@@ -5,17 +5,22 @@ Allows triggering pipeline.sh via HTTP and streaming its logs via SSE.
 """
 
 import asyncio
+import json
+import logging
 import os
 from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 import httpx
 
+logger = logging.getLogger(__name__)
+
 COOKIES_FILE = os.environ.get("COOKIES_FILE", "/cookies/cookies.txt")
 PIPELINE_CMD = ["/app/pipeline.sh", COOKIES_FILE]
 MAX_LOG_LINES = 2000
 LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://localhost:1234/v1")
 LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "qwen2.5-vl-7b-instruct")
+LM_STATUS_FILE = "/tmp/lm_status.json"
 
 app = FastAPI()
 
@@ -79,14 +84,14 @@ async def lm_status():
             models = r.json().get("data", [])
             model_id = models[0]["id"] if models else LM_STUDIO_MODEL
             connected = True
-    except Exception:
+    except Exception as exc:
+        logger.debug("lm-status: LM Studio unreachable: %s", exc)
         model_id = None
         connected = False
 
     try:
-        import json as _json
-        with open("/tmp/lm_status.json") as f:
-            last_request_at = _json.load(f).get("last_request_at")
+        with open(LM_STATUS_FILE) as f:
+            last_request_at = json.load(f).get("last_request_at")
     except Exception:
         last_request_at = None
 

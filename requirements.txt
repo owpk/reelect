@@ -2,4 +2,5 @@ openai
 faster-whisper
 gallery-dl
 fastapi
+httpx
 uvicorn[standard]
