@@ -35,7 +35,7 @@ gallery-dl \
   -d "$DOWNLOAD_DIR" \
   --filter "extension == 'mp4'" \
   --sleep 4-8 \
-  --retries 3 \
+  --retries 2 \
   "https://www.instagram.com/$USERNAME/saved/" \
   2>&1 | tee -a "$LOG_FILE"
 
