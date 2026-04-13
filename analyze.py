@@ -50,8 +50,8 @@ def _write_lm_request_time() -> None:
     try:
         with open(_LM_STATUS_FILE, "w") as f:
             json.dump({"last_request_at": datetime.now(timezone.utc).isoformat()}, f)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("_write_lm_request_time failed: %s", exc)
 
 
 def get_client() -> OpenAI:
