@@ -82,7 +82,7 @@ async def lm_status():
         async with httpx.AsyncClient(timeout=3.0) as client:
             r = await client.get(f"{LM_STUDIO_URL}/models")
             models = r.json().get("data", [])
-            model_id = models[0]["id"] if models else LM_STUDIO_MODEL
+            model_id = models[0]["id"] if models else None
             connected = True
     except Exception as exc:
         logger.debug("lm-status: LM Studio unreachable: %s", exc)

@@ -45,16 +45,22 @@ def stream_video(video_id: str):
 
 @app.post("/api/pipeline/run")
 async def pipeline_run():
-    async with httpx.AsyncClient() as client:
-        r = await client.post(f"{PIPELINE_URL}/run", timeout=5)
-        return r.json()
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.post(f"{PIPELINE_URL}/run", timeout=5)
+            return r.json()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Pipeline server unavailable")
 
 
 @app.get("/api/pipeline/status")
 async def pipeline_status():
-    async with httpx.AsyncClient() as client:
-        r = await client.get(f"{PIPELINE_URL}/status", timeout=5)
-        return r.json()
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(f"{PIPELINE_URL}/status", timeout=5)
+            return r.json()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Pipeline server unavailable")
 
 
 @app.get("/api/pipeline/logs")
