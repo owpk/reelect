@@ -43,6 +43,16 @@ _lm_semaphore = threading.Semaphore(LM_STUDIO_CONCURRENCY)
 _client: OpenAI | None = None
 _whisper_model = None
 
+_LM_STATUS_FILE = "/tmp/lm_status.json"
+
+
+def _write_lm_request_time() -> None:
+    try:
+        with open(_LM_STATUS_FILE, "w") as f:
+            json.dump({"last_request_at": datetime.now(timezone.utc).isoformat()}, f)
+    except Exception:
+        pass
+
 
 def get_client() -> OpenAI:
     global _client
@@ -123,6 +133,7 @@ def extract_frames_b64(video_path: Path) -> list[str]:
 
 def _lm_chat(messages: list, max_tokens: int, label: str = "") -> str:
     """Streams a chat completion. Prints reasoning to console, returns final content."""
+    _write_lm_request_time()
     extra: dict = {}
     if LM_STUDIO_THINKING_BUDGET >= 0:
         extra["thinking"] = {"type": "enabled", "budget_tokens": LM_STUDIO_THINKING_BUDGET}

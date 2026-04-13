@@ -63,6 +63,11 @@ async def status():
     return {"running": _running, "last_run": _last_run}
 
 
+@app.get("/logs")
+async def logs():
+    return {"lines": list(_log_buffer), "running": _running, "last_run": _last_run}
+
+
 @app.get("/stream")
 async def stream():
     async def generate():
