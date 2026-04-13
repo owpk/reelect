@@ -57,6 +57,20 @@ async def pipeline_status():
         return r.json()
 
 
+@app.get("/api/pipeline/logs")
+async def pipeline_logs():
+    async with httpx.AsyncClient() as client:
+        r = await client.get(f"{PIPELINE_URL}/logs", timeout=5)
+        return r.json()
+
+
+@app.get("/api/lm/status")
+async def lm_status():
+    async with httpx.AsyncClient() as client:
+        r = await client.get(f"{PIPELINE_URL}/lm-status", timeout=5)
+        return r.json()
+
+
 @app.get("/api/pipeline/stream")
 async def pipeline_stream():
     async def generate():
