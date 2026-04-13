@@ -9,10 +9,13 @@ import os
 from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
+import httpx
 
 COOKIES_FILE = os.environ.get("COOKIES_FILE", "/cookies/cookies.txt")
 PIPELINE_CMD = ["/app/pipeline.sh", COOKIES_FILE]
 MAX_LOG_LINES = 2000
+LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://localhost:1234/v1")
+LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "qwen2.5-vl-7b-instruct")
 
 app = FastAPI()
 
@@ -66,6 +69,33 @@ async def status():
 @app.get("/logs")
 async def logs():
     return {"lines": list(_log_buffer), "running": _running, "last_run": _last_run}
+
+
+@app.get("/lm-status")
+async def lm_status():
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.get(f"{LM_STUDIO_URL}/models")
+            models = r.json().get("data", [])
+            model_id = models[0]["id"] if models else LM_STUDIO_MODEL
+            connected = True
+    except Exception:
+        model_id = None
+        connected = False
+
+    try:
+        import json as _json
+        with open("/tmp/lm_status.json") as f:
+            last_request_at = _json.load(f).get("last_request_at")
+    except Exception:
+        last_request_at = None
+
+    return {
+        "connected": connected,
+        "url": LM_STUDIO_URL,
+        "model": model_id,
+        "last_request_at": last_request_at,
+    }
 
 
 @app.get("/stream")
