@@ -14,6 +14,22 @@ export default function PipelinePanel() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => {
+      fetch("/api/pipeline/status")
+        .then((r) => r.json())
+        .then((d) => {
+          if (!d.running) {
+            setRunning(false);
+            setLastRun(d.last_run);
+          }
+        })
+        .catch(() => {});
+    }, 5_000);
+    return () => clearInterval(id);
+  }, [running]);
+
   async function handleRun() {
     try {
       const r = await fetch("/api/pipeline/run", { method: "POST" });
