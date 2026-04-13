@@ -59,16 +59,22 @@ async def pipeline_status():
 
 @app.get("/api/pipeline/logs")
 async def pipeline_logs():
-    async with httpx.AsyncClient() as client:
-        r = await client.get(f"{PIPELINE_URL}/logs", timeout=5)
-        return r.json()
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(f"{PIPELINE_URL}/logs", timeout=5)
+            return r.json()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Pipeline server unavailable")
 
 
 @app.get("/api/lm/status")
 async def lm_status():
-    async with httpx.AsyncClient() as client:
-        r = await client.get(f"{PIPELINE_URL}/lm-status", timeout=5)
-        return r.json()
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(f"{PIPELINE_URL}/lm-status", timeout=5)
+            return r.json()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Pipeline server unavailable")
 
 
 @app.get("/api/pipeline/stream")
