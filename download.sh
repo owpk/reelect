@@ -44,7 +44,7 @@ get_all_urls() {
     --cookies "$COOKIES_FILE" \
     --get-url \
     "https://www.instagram.com/$USERNAME/saved/" \
-    2>>"$LOG_FILE" | grep -E '\.mp4' >"$URL_CACHE_FILE"
+    2>>"$LOG_FILE" | grep -E '^https?://.*\.mp4' >"$URL_CACHE_FILE"
 
   local status=${PIPESTATUS[0]}
 
