@@ -8,6 +8,7 @@ services:
     volumes:
       - ./cookies.txt:/cookies/cookies.txt:ro
       - ./saved_videos:/app/saved_videos
+      - ./.env:/app/.env
 
   viewer:
     build: ./viewer
@@ -17,5 +18,6 @@ services:
       - PIPELINE_URL=http://pipeline:8001
     volumes:
       - ./saved_videos:/app/saved_videos:ro
+      - ./.env:/app/.env
     depends_on:
       - pipeline

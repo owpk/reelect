@@ -15,13 +15,15 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 import httpx
 
+from config import load_env
+
 logger = logging.getLogger(__name__)
 
+_config = load_env(".env")
 COOKIES_FILE = os.environ.get("COOKIES_FILE", "/cookies/cookies.txt")
 MAX_LOG_LINES = 2000
-# LLM API configuration
-LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://localhost:1234/v1")
-LLM_MODEL = os.environ.get("LLM_MODEL", "qwen2.5-vl-7b-instruct")
+LLM_BASE_URL = _config.get("LLM_BASE_URL", "http://localhost:1234/v1")
+LLM_MODEL = _config.get("LLM_MODEL", "qwen2.5-vl-7b-instruct")
 LM_STATUS_FILE = "/tmp/lm_status.json"
 ARCHIVE_DB = os.environ.get("ARCHIVE_DB", "saved_videos/downloaded_archive.db")
 RAW_DIR = os.environ.get("RAW_DIR", "saved_videos/raw")

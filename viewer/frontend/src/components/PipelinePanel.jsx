@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import LogsModal from "./LogsModal.jsx";
+import SettingsModal from "./SettingsModal.jsx";
 import "./PipelinePanel.css";
 
 export default function PipelinePanel() {
@@ -7,6 +8,7 @@ export default function PipelinePanel() {
   const [lastRun, setLastRun] = useState(null);
   const [logsOpen, setLogsOpen] = useState(false);
   const [dlStats, setDlStats] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Initial status fetch
   useEffect(() => {
@@ -91,6 +93,9 @@ export default function PipelinePanel() {
         <button className="btn-logs-icon" onClick={() => setLogsOpen(true)} title="Show logs">
           📋
         </button>
+        <button className="btn-settings-icon" onClick={() => setSettingsOpen(true)} title="Settings">
+          ⚙️
+        </button>
       </div>
 
       {dlStats && (
@@ -129,6 +134,7 @@ export default function PipelinePanel() {
       )}
 
       {logsOpen && <LogsModal onClose={() => setLogsOpen(false)} />}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

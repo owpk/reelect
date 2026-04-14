@@ -13,7 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Pre-download Whisper base model so first run doesn't need internet
 RUN python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')"
 
-COPY download.sh analyze.py batch_analyze.py pipeline.sh entrypoint.sh trigger_server.py ./
+COPY config.py analyze.py batch_analyze.py pipeline.sh entrypoint.sh trigger_server.py ./
+COPY download.sh ./
 RUN chmod +x download.sh analyze.py batch_analyze.py pipeline.sh entrypoint.sh
 
 # /cookies/cookies.txt  — mounted read-only at runtime

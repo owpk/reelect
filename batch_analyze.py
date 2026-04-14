@@ -6,17 +6,18 @@ Finds all unprocessed videos in saved_videos/raw/ (recursively)
 and analyzes them in parallel with a concurrency limit.
 """
 
-import os
 import logging
 import sys
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from config import load_env
 from analyze import analyze
 
 RAW_DIR = Path("saved_videos/raw")
 META_DIR = Path("saved_videos/meta")
-MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "3"))
+_config = load_env(".env")
+MAX_WORKERS = int(_config.get("MAX_WORKERS", "3"))
 
 logging.basicConfig(
     level=logging.INFO,

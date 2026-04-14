@@ -5,6 +5,9 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+from config import get_ui_config, update_ui_config
 
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://pipeline:8001")
 
@@ -13,6 +16,10 @@ META_DIR = BASE_DIR / "saved_videos/meta"
 STATIC_DIR = Path("/app/static")
 
 app = FastAPI()
+
+
+class ConfigUpdate(BaseModel):
+    config: dict
 
 
 @app.get("/api/videos")
@@ -101,6 +108,24 @@ async def pipeline_stop():
             return r.json()
     except Exception:
         raise HTTPException(status_code=503, detail="Pipeline server unavailable")
+
+
+# ── Configuration API ────────────────────────────────────────────────────────
+
+@app.get("/api/config")
+async def get_config():
+    """Get UI-editable configuration keys."""
+    return get_ui_config()
+
+
+@app.put("/api/config")
+async def update_config(update: ConfigUpdate):
+    """Update UI-editable configuration keys."""
+    try:
+        update_ui_config(update.config)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 

@@ -87,6 +87,22 @@
 }
 .btn-logs-icon:hover { background: var(--surface); }
 
+.btn-settings-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.btn-settings-icon:hover { background: var(--surface); }
+
 .dl-stats {
   border-top: 1px solid var(--border);
   padding-top: 8px;

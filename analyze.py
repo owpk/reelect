@@ -3,7 +3,7 @@
 analyze.py <video_file>
 
 Extracts transcript and visual description from a video,
-then uses a local LM Studio model to produce summary, category, and tags.
+then uses a local LLM to produce summary, category, and tags.
 Writes result to saved_videos/meta/<stem>.json
 """
 
@@ -19,6 +19,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from openai import OpenAI
+from config import load_env
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +29,17 @@ MAX_FRAMES = 350
 
 _default_lm_url = "http://localhost:1234/v1"
 
-# LLM API configuration
-LLM_BASE_URL = os.environ.get("LLM_BASE_URL", _default_lm_url)
-LLM_MODEL = os.environ.get("LLM_MODEL", "qwen2.5-vl-7b-instruct")
-LLM_API_KEY = os.environ.get("LLM_API_KEY", "lm-studio")
-LLM_CONCURRENCY = int(os.environ.get("LLM_CONCURRENCY", "1"))
-LLM_NATIVE_VIDEO = os.environ.get("LLM_NATIVE_VIDEO", "false").lower() == "true"
+# Configuration loaded from .env file
+_config = load_env(".env")
+LLM_BASE_URL = _config.get("LLM_BASE_URL", _default_lm_url)
+LLM_MODEL = _config.get("LLM_MODEL", "qwen2.5-vl-7b-instruct")
+LLM_API_KEY = _config.get("LLM_API_KEY", "lm-studio")
+LLM_CONCURRENCY = int(_config.get("LLM_CONCURRENCY", "1"))
+LLM_NATIVE_VIDEO = _config.get("LLM_NATIVE_VIDEO", "false").lower() == "true"
 
-LLM_THINKING_BUDGET = int(os.environ.get("LLM_THINKING_BUDGET", "-1"))
-LLM_MAX_TOKENS_VISUAL = int(os.environ.get("LLM_MAX_TOKENS_VISUAL", "1024"))
-LLM_MAX_TOKENS_METADATA = int(os.environ.get("LLM_MAX_TOKENS_METADATA", "4096"))
+LLM_THINKING_BUDGET = int(_config.get("LLM_THINKING_BUDGET", "-1"))
+LLM_MAX_TOKENS_VISUAL = int(_config.get("LLM_MAX_TOKENS_VISUAL", "1024"))
+LLM_MAX_TOKENS_METADATA = int(_config.get("LLM_MAX_TOKENS_METADATA", "4096"))
 
 _llm_semaphore = threading.Semaphore(LLM_CONCURRENCY)
 
