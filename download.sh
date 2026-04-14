@@ -7,7 +7,6 @@ if [ -z "$USERNAME" ]; then
 fi
 
 DOWNLOAD_DIR="saved_videos/raw"
-ARCHIVE_FILE="saved_videos/downloaded_archive.txt"
 LOG_FILE="download_log.txt"
 URL_CACHE_FILE="saved_videos/url_cache.txt"
 STATUS_CACHE_FILE="saved_videos/status_cache.txt"
