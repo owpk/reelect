@@ -83,6 +83,16 @@ async def lm_status():
         raise HTTPException(status_code=503, detail="Pipeline server unavailable")
 
 
+@app.get("/api/pipeline/dl-stats")
+async def pipeline_dl_stats():
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(f"{PIPELINE_URL}/dl-stats", timeout=5)
+            return r.json()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Pipeline server unavailable")
+
+
 @app.get("/api/pipeline/stream")
 async def pipeline_stream():
     async def generate():
