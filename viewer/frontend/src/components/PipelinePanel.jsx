@@ -16,14 +16,6 @@ export default function PipelinePanel() {
       .catch(() => {});
   }, []);
 
-  // Initial dl-stats fetch
-  useEffect(() => {
-    fetch("/api/pipeline/dl-stats")
-      .then((r) => r.json())
-      .then(setDlStats)
-      .catch(() => {});
-  }, []);
-
   // Poll status + dl-stats every 3s while running
   useEffect(() => {
     if (!running) return;
