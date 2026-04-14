@@ -76,7 +76,6 @@ download_with_retry() {
 
     gallery-dl \
       --cookies "$COOKIES_FILE" \
-      --download-archive "$temp_archive" \
       -d "$DOWNLOAD_DIR" \
       --filter "extension == 'mp4'" \
       --retries 1 \
@@ -86,24 +85,12 @@ download_with_retry() {
 
     local status=${PIPESTATUS[0]}
 
-    # Проверяем результат
     if [ "$status" -eq 0 ]; then
       log "INFO" "Успешно загружено: $url"
-      # Сохраняем статус в кэш
       echo "$url|DONE" >>"$STATUS_CACHE_FILE"
-
-      # Обновляем основной архив из временного
-      if [ -f "$temp_archive" ]; then
-        cat "$temp_archive" >>"$ARCHIVE_FILE"
-        sort -u "$ARCHIVE_FILE" -o "$ARCHIVE_FILE"
-      fi
-
-      rm -f "$temp_archive"
       return 0
     else
       log "WARN" "Ошибка при загрузке (код $status): $url"
-      rm -f "$temp_archive"
-
       if [ $attempt -lt $MAX_RETRIES ]; then
         log "INFO" "Жду $RETRY_DELAY секунд перед следующей попыткой..."
         sleep $RETRY_DELAY
@@ -113,7 +100,6 @@ download_with_retry() {
     ((attempt++))
   done
 
-  # Все попытки неудачны
   log "ERROR" "Не удалось загрузить после $MAX_RETRIES попыток: $url"
   echo "$url|FAILED" >>"$STATUS_CACHE_FILE"
   return 1
@@ -170,14 +156,6 @@ for url in "${urls[@]}"; do
         continue
       fi
     fi
-  fi
-
-  # Проверяем, не было ли видео уже загружено ранее (из archive)
-  if [ -f "$ARCHIVE_FILE" ] && grep -qF "$url" "$ARCHIVE_FILE"; then
-    log "INFO" "Пропускаю (уже в архиве): $url"
-    echo "$url|DONE" >>"$STATUS_CACHE_FILE"
-    ((skipped++))
-    continue
   fi
 
   # Скачиваем с ретраями
