@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import os
+import sqlite3
 from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
@@ -16,7 +17,6 @@ import httpx
 logger = logging.getLogger(__name__)
 
 COOKIES_FILE = os.environ.get("COOKIES_FILE", "/cookies/cookies.txt")
-PIPELINE_CMD = ["/app/pipeline.sh", COOKIES_FILE]
 MAX_LOG_LINES = 2000
 LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://localhost:1234/v1")
 LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "qwen2.5-vl-7b-instruct")
@@ -46,12 +46,10 @@ def _append_log(line: str) -> None:
 
 def _count_archive() -> int:
     try:
-        import sqlite3 as _sqlite3
-        con = _sqlite3.connect(ARCHIVE_FILE)
-        count = con.execute("SELECT COUNT(*) FROM archive").fetchone()[0]
-        con.close()
-        return count
-    except Exception:
+        with sqlite3.connect(ARCHIVE_FILE) as con:
+            return con.execute("SELECT COUNT(*) FROM archive").fetchone()[0]
+    except Exception as exc:
+        logger.debug("_count_archive failed: %s", exc)
         return 0
 
 
@@ -94,14 +92,18 @@ async def _run_pipeline() -> None:
             except asyncio.CancelledError:
                 pass
 
-        final_downloaded = _count_archive() - baseline
         total = _count_archive()
+        final_downloaded = total - baseline
         _dl_stats["session_downloaded"] = final_downloaded
         _dl_stats["total_archived"] = total
         _append_log(
             f"=== download: скачано {final_downloaded} новых, итого в архиве {total} ==="
         )
         _append_log(f"=== download.sh finished (exit code {process.returncode}) ===")
+
+        if process.returncode != 0:
+            _append_log("=== download.sh failed — skipping analyze phase ===")
+            return
 
         # ── Phase 2: Analyze ───────────────────────────────────────────────
         _dl_stats["phase"] = "analyzing"
