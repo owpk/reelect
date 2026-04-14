@@ -5,9 +5,16 @@ if [ -z "$USERNAME" ]; then
   echo "Ошибка: переменная INSTAGRAM_USERNAME не задана"
   exit 1
 fi
+
 DOWNLOAD_DIR="saved_videos/raw"
 ARCHIVE_FILE="saved_videos/downloaded_archive.txt"
 LOG_FILE="download_log.txt"
+URL_CACHE_FILE="saved_videos/url_cache.txt"
+STATUS_CACHE_FILE="saved_videos/status_cache.txt"
+
+# Константы
+MAX_RETRIES=1
+RETRY_DELAY=5
 
 mkdir -p "$DOWNLOAD_DIR" "saved_videos/meta"
 
@@ -29,21 +36,166 @@ fi
 
 log "INFO" "Начинаю скачивание сохранённых reels для @$USERNAME..."
 
-gallery-dl \
-  --cookies "$COOKIES_FILE" \
-  --download-archive "$ARCHIVE_FILE" \
-  -d "$DOWNLOAD_DIR" \
-  --filter "extension == 'mp4'" \
-  --sleep 4-8 \
-  --retries 2 \
-  "https://www.instagram.com/$USERNAME/saved/" \
-  2>&1 | tee -a "$LOG_FILE"
+# Функция получения списка URL из Instagram
+get_all_urls() {
+  log "INFO" "Получаю список URL из Instagram..."
+  local temp_file=$(mktemp)
 
-STATUS=${PIPESTATUS[0]}
+  # Используем --get-url для получения списка URL
+  gallery-dl \
+    --cookies "$COOKIES_FILE" \
+    --get-url \
+    "https://www.instagram.com/$USERNAME/saved/" \
+    2>&1 | tee "$temp_file"
 
-if [ "$STATUS" -eq 0 ]; then
-  log "INFO" "Готово! Новые видео в папке: $DOWNLOAD_DIR"
-else
-  log "ERROR" "gallery-dl завершился с ошибкой (код $STATUS)"
-  exit "$STATUS"
+  local status=${PIPESTATUS[0]}
+
+  if [ "$status" -ne 0 ]; then
+    log "ERROR" "Не удалось получить список URL (код $status)"
+    rm -f "$temp_file"
+    return 1
+  fi
+
+  # Фильтруем только URL видео (mp4)
+  grep -E '\.mp4' "$temp_file" >"$URL_CACHE_FILE"
+  rm -f "$temp_file"
+
+  local count=$(wc -l <"$URL_CACHE_FILE")
+  log "INFO" "Найдено $count URL для загрузки"
+
+  return 0
+}
+
+# Функция загрузки одного URL с повторными попытками
+download_with_retry() {
+  local url="$1"
+  local attempt=1
+
+  while [ $attempt -le $MAX_RETRIES ]; do
+    log "INFO" "Попытка $attempt/$MAX_RETRIES: $url"
+
+    gallery-dl \
+      --cookies "$COOKIES_FILE" \
+      --download-archive "$temp_archive" \
+      -d "$DOWNLOAD_DIR" \
+      --filter "extension == 'mp4'" \
+      --retries 1 \
+      --sleep 4-8 \
+      "$url" \
+      2>&1 | tee -a "$LOG_FILE"
+
+    local status=${PIPESTATUS[0]}
+
+    # Проверяем результат
+    if [ "$status" -eq 0 ]; then
+      log "INFO" "Успешно загружено: $url"
+      # Сохраняем статус в кэш
+      echo "$url|DONE" >>"$STATUS_CACHE_FILE"
+
+      # Обновляем основной архив из временного
+      if [ -f "$temp_archive" ]; then
+        cat "$temp_archive" >>"$ARCHIVE_FILE"
+        sort -u "$ARCHIVE_FILE" -o "$ARCHIVE_FILE"
+      fi
+
+      rm -f "$temp_archive"
+      return 0
+    else
+      log "WARN" "Ошибка при загрузке (код $status): $url"
+      rm -f "$temp_archive"
+
+      if [ $attempt -lt $MAX_RETRIES ]; then
+        log "INFO" "Жду $RETRY_DELAY секунд перед следующей попыткой..."
+        sleep $RETRY_DELAY
+      fi
+    fi
+
+    ((attempt++))
+  done
+
+  # Все попытки неудачны
+  log "ERROR" "Не удалось загрузить после $MAX_RETRIES попыток: $url"
+  echo "$url|FAILED" >>"$STATUS_CACHE_FILE"
+  return 1
+}
+
+# Проверка/получение кэша URL
+if [ -f "$URL_CACHE_FILE" ]; then
+  log "INFO" "Найден существующий кэш URL: $URL_CACHE_FILE"
+
+  # Проверяем, актуален ли кэш (не старше 24 часов)
+  cache_age=$(($(date +%s) - $(stat -f%m "$URL_CACHE_FILE" 2>/dev/null || stat -c%Y "$URL_CACHE_FILE" 2>/dev/null)))
+  max_age=$((24 * 60 * 60)) # 24 часа
+
+  if [ $cache_age -gt $max_age ]; then
+    log "WARN" "Кэш устарел (>24 часов), обновляю..."
+    rm -f "$URL_CACHE_FILE" "$STATUS_CACHE_FILE"
+  fi
+fi
+
+# Получаем список URL если нет кэша
+if [ ! -f "$URL_CACHE_FILE" ]; then
+  if ! get_all_urls; then
+    log "ERROR" "Не удалось получить список URL. Завершаю."
+    exit 1
+  fi
+fi
+
+# Получаем список URL
+urls=()
+while IFS= read -r url; do
+  [ -n "$url" ] && urls+=("$url")
+done <"$URL_CACHE_FILE"
+
+total=${#urls[@]}
+log "INFO" "Всего URL в кэше: $total"
+
+# Обработка каждого URL
+successful=0
+failed=0
+skipped=0
+
+for url in "${urls[@]}"; do
+  # Проверяем, не был ли уже обработан этот URL
+  if [ -f "$STATUS_CACHE_FILE" ]; then
+    if grep -q "^$url|" "$STATUS_CACHE_FILE"; then
+      status=$(grep "^$url|" "$STATUS_CACHE_FILE" | cut -d'|' -f2)
+      if [ "$status" = "DONE" ]; then
+        log "INFO" "Пропускаю (уже загружено): $url"
+        ((skipped++))
+        continue
+      elif [ "$status" = "FAILED" ]; then
+        log "INFO" "Пропускаю (предыдущая неудача): $url"
+        ((skipped++))
+        continue
+      fi
+    fi
+  fi
+
+  # Проверяем, не было ли видео уже загружено ранее (из archive)
+  if [ -f "$ARCHIVE_FILE" ] && grep -qF "$url" "$ARCHIVE_FILE"; then
+    log "INFO" "Пропускаю (уже в архиве): $url"
+    echo "$url|DONE" >>"$STATUS_CACHE_FILE"
+    ((skipped++))
+    continue
+  fi
+
+  # Скачиваем с ретраями
+  if download_with_retry "$url"; then
+    ((successful++))
+  else
+    ((failed++))
+  fi
+done
+
+# Итоги
+log "INFO" "========================================="
+log "INFO" "Скачивание завершено!"
+log "INFO" "Успешно: $successful"
+log "INFO" "Пропущено: $skipped"
+log "INFO" "Неудачи: $failed"
+log "INFO" "========================================="
+
+if [ $failed -gt 0 ]; then
+  log "WARN" "Есть неудачные загрузки. Проверь лог для деталей."
 fi
