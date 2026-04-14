@@ -38,26 +38,20 @@ log "INFO" "Начинаю скачивание сохранённых reels д�
 # Функция получения списка URL из Instagram
 get_all_urls() {
   log "INFO" "Получаю список URL из Instagram..."
-  local temp_file=$(mktemp)
 
-  # Используем --get-url для получения списка URL
+  # stderr → лог, stdout → фильтруем mp4 URL (без смешивания с лог-сообщениями)
   gallery-dl \
     --cookies "$COOKIES_FILE" \
     --get-url \
     "https://www.instagram.com/$USERNAME/saved/" \
-    2>&1 | tee "$temp_file"
+    2>>"$LOG_FILE" | grep -E '\.mp4' >"$URL_CACHE_FILE"
 
   local status=${PIPESTATUS[0]}
 
   if [ "$status" -ne 0 ]; then
     log "ERROR" "Не удалось получить список URL (код $status)"
-    rm -f "$temp_file"
     return 1
   fi
-
-  # Фильтруем только URL видео (mp4)
-  grep -E '\.mp4' "$temp_file" >"$URL_CACHE_FILE"
-  rm -f "$temp_file"
 
   local count=$(wc -l <"$URL_CACHE_FILE")
   log "INFO" "Найдено $count URL для загрузки"
