@@ -67,13 +67,13 @@ async def _run_pipeline() -> None:
     _running = True
     _last_run = datetime.now(timezone.utc).isoformat()
     _log_buffer.clear()
-    _dl_stats.update({"session_downloaded": 0, "total_archived": _count_archive(), "phase": "idle"})
+    baseline = _count_archive()
+    _dl_stats.update({"session_downloaded": 0, "total_archived": baseline, "phase": "idle"})
     _append_log(f"=== started at {_last_run} ===")
 
     try:
         # ── Phase 1: Download ──────────────────────────────────────────────
         _dl_stats["phase"] = "downloading"
-        baseline = _count_archive()
         poll_task = asyncio.create_task(_poll_archive(baseline))
 
         try:
