@@ -7,6 +7,8 @@ export default function LogsModal({ onClose }) {
   const [lastRun, setLastRun] = useState(null);
   const [lmStatus, setLmStatus] = useState(null);
   const endRef = useRef(null);
+  const terminalRef = useRef(null);
+  const atBottomRef = useRef(true);
   const esRef = useRef(null);
   const pollRef = useRef(null);
 
@@ -17,10 +19,18 @@ export default function LogsModal({ onClose }) {
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  // Auto-scroll
+  // Auto-scroll — only when user is at the bottom
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (atBottomRef.current) {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [lines]);
+
+  function handleScroll() {
+    const el = terminalRef.current;
+    if (!el) return;
+    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+  }
 
   // Fetch LM status
   function fetchLmStatus() {
@@ -143,7 +153,7 @@ export default function LogsModal({ onClose }) {
         </div>
 
         {/* Log terminal */}
-        <div className="logs-terminal">
+        <div className="logs-terminal" ref={terminalRef} onScroll={handleScroll}>
           {lines.length === 0 ? (
             <div className="logs-empty">No logs yet.</div>
           ) : (
