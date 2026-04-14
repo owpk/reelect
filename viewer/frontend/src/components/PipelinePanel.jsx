@@ -6,7 +6,9 @@ export default function PipelinePanel() {
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState(null);
   const [logsOpen, setLogsOpen] = useState(false);
+  const [dlStats, setDlStats] = useState(null);
 
+  // Initial status fetch
   useEffect(() => {
     fetch("/api/pipeline/status")
       .then((r) => r.json())
@@ -14,6 +16,15 @@ export default function PipelinePanel() {
       .catch(() => {});
   }, []);
 
+  // Initial dl-stats fetch
+  useEffect(() => {
+    fetch("/api/pipeline/dl-stats")
+      .then((r) => r.json())
+      .then(setDlStats)
+      .catch(() => {});
+  }, []);
+
+  // Poll status + dl-stats every 3s while running
   useEffect(() => {
     if (!running) return;
     const id = setInterval(() => {
@@ -26,8 +37,21 @@ export default function PipelinePanel() {
           }
         })
         .catch(() => {});
-    }, 5_000);
+      fetch("/api/pipeline/dl-stats")
+        .then((r) => r.json())
+        .then(setDlStats)
+        .catch(() => {});
+    }, 3_000);
     return () => clearInterval(id);
+  }, [running]);
+
+  // One final dl-stats fetch when run ends
+  useEffect(() => {
+    if (running) return;
+    fetch("/api/pipeline/dl-stats")
+      .then((r) => r.json())
+      .then(setDlStats)
+      .catch(() => {});
   }, [running]);
 
   async function handleRun() {
@@ -42,6 +66,10 @@ export default function PipelinePanel() {
       console.error(e);
     }
   }
+
+  const phaseLabel =
+    dlStats?.phase === "downloading" ? "Downloading..." :
+    dlStats?.phase === "analyzing"   ? "Analyzing..."   : null;
 
   return (
     <div className="pipeline">
@@ -61,6 +89,30 @@ export default function PipelinePanel() {
           📋
         </button>
       </div>
+
+      {dlStats && (
+        <div className="dl-stats">
+          <div className="dl-stats-title">Download</div>
+          <div className="dl-stats-row">
+            <span className="dl-stats-label">Всего в архиве</span>
+            <span className="dl-stats-value">{dlStats.total_archived} видео</span>
+          </div>
+          {!running && dlStats.session_downloaded > 0 && (
+            <div className="dl-stats-row">
+              <span className="dl-stats-label">Последний запуск</span>
+              <span className="dl-stats-value">+{dlStats.session_downloaded} новых</span>
+            </div>
+          )}
+          {running && dlStats.phase === "downloading" && (
+            <div className="dl-stats-counter">
+              {dlStats.session_downloaded} скачано
+            </div>
+          )}
+          {running && phaseLabel && (
+            <div className="dl-phase">{phaseLabel}</div>
+          )}
+        </div>
+      )}
 
       {logsOpen && <LogsModal onClose={() => setLogsOpen(false)} />}
     </div>
