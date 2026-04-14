@@ -93,6 +93,16 @@ async def pipeline_dl_stats():
         raise HTTPException(status_code=503, detail="Pipeline server unavailable")
 
 
+@app.post("/api/pipeline/stop")
+async def pipeline_stop():
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.post(f"{PIPELINE_URL}/stop", timeout=5)
+            return r.json()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Pipeline server unavailable")
+
+
 @app.post("/api/pipeline/retry-failed")
 async def pipeline_retry_failed():
     try:

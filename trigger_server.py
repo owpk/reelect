@@ -42,6 +42,7 @@ app = FastAPI()
 _running = False
 _last_run: str | None = None
 _log_buffer: list[str] = []
+_current_process: asyncio.subprocess.Process | None = None
 
 
 def _append_log(line: str) -> None:
@@ -116,7 +117,7 @@ async def _poll_stats() -> None:
 
 
 async def _run_pipeline() -> None:
-    global _running, _last_run
+    global _running, _last_run, _current_process
     _running = True
     _last_run = datetime.now(timezone.utc).isoformat()
     _log_buffer.clear()
@@ -134,10 +135,12 @@ async def _run_pipeline() -> None:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
             )
+            _current_process = process
             async for raw in process.stdout:
                 _append_log(raw.decode(errors="replace").rstrip())
             await process.wait()
         finally:
+            _current_process = None
             poll_task.cancel()
             try:
                 await poll_task
@@ -149,8 +152,10 @@ async def _run_pipeline() -> None:
         _append_log(
             f"=== download: скачано {ds['downloaded']}, ошибок {ds['failed']}, всего URL {ds['total_urls']} ==="
         )
+        if process.returncode < 0:
+            _append_log("=== pipeline остановлен пользователем ===")
+            return
         _append_log(f"=== download.sh finished (exit code {process.returncode}) ===")
-
         if process.returncode != 0:
             _append_log("=== download.sh failed — skipping analyze phase ===")
             return
@@ -167,10 +172,12 @@ async def _run_pipeline() -> None:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
             )
+            _current_process = process2
             async for raw in process2.stdout:
                 _append_log(raw.decode(errors="replace").rstrip())
             await process2.wait()
         finally:
+            _current_process = None
             poll_task2.cancel()
             try:
                 await poll_task2
@@ -179,6 +186,9 @@ async def _run_pipeline() -> None:
 
         as_ = _read_analyze_stats()
         _dl_stats.update(as_)
+        if process2.returncode < 0:
+            _append_log("=== pipeline остановлен пользователем ===")
+            return
         _append_log(
             f"=== analyze: проанализировано {as_['analyzed']} / {as_['total_videos']} видео ==="
         )
@@ -212,6 +222,19 @@ async def retry_failed():
     removed = _clear_failed_from_status_cache()
     asyncio.create_task(_run_pipeline())
     return {"status": "started", "cleared_failed": removed}
+
+
+@app.post("/stop")
+async def stop():
+    if not _running:
+        return {"status": "not_running"}
+    p = _current_process
+    if p is not None:
+        try:
+            p.terminate()
+        except ProcessLookupError:
+            pass
+    return {"status": "stopping"}
 
 
 @app.get("/status")

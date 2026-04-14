@@ -57,6 +57,20 @@
 .btn-run:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-run:not(:disabled):hover { opacity: 0.85; }
 
+.btn-stop {
+  flex: 1;
+  padding: 7px 0;
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-stop:hover { opacity: 0.85; }
+
 .btn-logs-icon {
   flex-shrink: 0;
   width: 32px;

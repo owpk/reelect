@@ -59,6 +59,14 @@ export default function PipelinePanel() {
     }
   }
 
+  async function handleStop() {
+    try {
+      await fetch("/api/pipeline/stop", { method: "POST" });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   async function handleRetryFailed() {
     try {
       const r = await fetch("/api/pipeline/retry-failed", { method: "POST" });
@@ -89,9 +97,11 @@ export default function PipelinePanel() {
         <span className="last-run">last: {new Date(lastRun).toLocaleString()}</span>
       )}
       <div className="pipeline-actions">
-        <button className="btn-run" onClick={handleRun} disabled={running}>
-          {running ? "Running..." : "▶ Run pipeline"}
-        </button>
+        {running ? (
+          <button className="btn-stop" onClick={handleStop}>■ Stop</button>
+        ) : (
+          <button className="btn-run" onClick={handleRun}>▶ Run pipeline</button>
+        )}
         <button className="btn-logs-icon" onClick={() => setLogsOpen(true)} title="Show logs">
           📋
         </button>
