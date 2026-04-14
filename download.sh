@@ -143,7 +143,7 @@ skipped=0
 for url in "${urls[@]}"; do
   # Проверяем, не был ли уже обработан этот URL
   if [ -f "$STATUS_CACHE_FILE" ]; then
-    if grep -q "^$url|" "$STATUS_CACHE_FILE"; then
+    if grep -qF "$url|" "$STATUS_CACHE_FILE"; then
       status=$(grep "^$url|" "$STATUS_CACHE_FILE" | cut -d'|' -f2)
       if [ "$status" = "DONE" ]; then
         log "INFO" "Пропускаю (уже загружено): $url"

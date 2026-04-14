@@ -146,7 +146,6 @@ async def _run_pipeline() -> None:
 
         ds = _read_download_stats()
         _dl_stats.update(ds)
-        _dl_stats["phase"] = "downloading"
         _append_log(
             f"=== download: скачано {ds['downloaded']}, ошибок {ds['failed']}, всего URL {ds['total_urls']} ==="
         )
