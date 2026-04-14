@@ -102,8 +102,8 @@ import httpx
 Also add these near the top (after existing `os` import):
 
 ```python
-LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://localhost:1234/v1")
-LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "qwen2.5-vl-7b-instruct")
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://localhost:1234/v1")
+LLM_MODEL = os.environ.get("LLM_MODEL", "qwen2.5-vl-7b-instruct")
 ```
 
 - [ ] **Step 2: Add `GET /lm-status` endpoint**
@@ -132,7 +132,7 @@ async def lm_status():
 
     return {
         "connected": connected,
-        "url": LM_STUDIO_URL,
+        "url": LLM_BASE_URL,
         "model": model_id,
         "last_request_at": last_request_at,
     }

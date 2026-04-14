@@ -6,175 +6,142 @@
 
 
 ---
-### 📄 2026-04-14-reelect-01-06.md
+### 📄 2026-04-14-reelect-14-36.md
 ---
 date: 2026-04-14
-time: 01-06
+time: 14-36
 project: reelect
 tags: [claude-session, reelect]
 related: []
 ---
 
-# reelect — 2026-04-14 01-06
+# reelect — 2026-04-14 14-36
 
 ## Что было сделано
-Спек сохранён в `docs/superpowers/specs/2026-04-14-download-stats-design.md`. Посмотри его — особенно обрати внимание на пункт про разбивку `pipeline.sh` на два subprocess-вызова (это нужно чтобы различать фазы downloading/analyzing). Если всё ок — перейдём к плану реализации.
+Готово. Итоговые изменения:
+
+**`download.sh`** — 173 строки → 42. Один `gallery-dl` вызов с `--download-archive saved_videos/downloaded_archive.db`. Audio+video склеивается автоматически через ffmpeg внутри gallery-dl.
+
+**`trigger_server.py`** — убраны `url_cache`, `status_cache`, `retry-failed`. Прогресс теперь через:
+- `_count_raw_videos()` — количество mp4 в `raw/` (до и после = delta за сессию)
+- `_count_archive()` — `SELECT COUNT(*) FROM archive` (SQLite gallery-dl)
+
+**Сайдбар теперь показывает:**
+```
+Загрузка
+  Скачано:   5 новых    ← зелёный во время downloading
+  В архиве:  92
+
+Анализ
+  Проанализировано: 8 / 12   ← зелёный во время analyzing
+```
 
 ## Git
 - Branch: main
-- Последний коммит: cec572b docs: add download stats tracking design spec
-
+- Последний коммит: b1d202c refactor: use mp4 count + SQLite archive for stats, remove retry-failed
+- Изменённые файлы:
+- CLAUDE.md
 
 ## Связанные проекты
 
 
 ## Предыдущая сессия
-[[claude-sessions/2026-04-14-reelect-01-04]]
+[[claude-sessions/2026-04-14-reelect-12-02]]
 
 ## TODO на следующую сессию
 - [ ] 
 
 ---
-*← [[claude-sessions/2026-04-14-reelect-01-04]]*
+*← [[claude-sessions/2026-04-14-reelect-12-02]]*
 
 
 ---
-### 📄 2026-04-14-reelect-01-04.md
+### 📄 2026-04-14-reelect-12-02.md
 ---
 date: 2026-04-14
-time: 01-04
+time: 12-02
 project: reelect
 tags: [claude-session, reelect]
 related: []
 ---
 
-# reelect — 2026-04-14 01-04
+# reelect — 2026-04-14 12-02
 
 ## Что было сделано
-## Дизайн — Часть 2: Фронтенд
+Да, это два отдельных потока — **видео без звука** и **аудио без видео**. Instagram использует DASH-стриминг для хранения их раздельно. gallery-dl при обычном скачивании (без `--get-url`) сам скачивает оба потока и склеивает их через ffmpeg автоматически.
 
-### Сайдбар — блок статистики в `PipelinePanel`
+Проблема с текущим подходом глубже: мы используем `--get-url` чтобы получить список URL для трекинга прогресса, а потом передаём эти CDN-ссылки обратно в gallery-dl поштучно — но gallery-dl тогда качает только видео-поток без знания о парном аудио. Результат: **видео без звука**.
 
-Под кнопками добавляется секция `dl-stats`. Показывается всегда (не только во время запуска):
+Нужно переделать подход. Вместо CDN URL использовать оригинальные URL страниц Instagram:
 
 ```
-Pipeline
-● Idle   last: 14.04.2026 12:34
+gallery-dl --get-url https://instagram.com/user/saved/
+→ выдаёт CDN URLs (неудобно, пары)
 
-[ ▶ Run pipeline ] [ 📋 ]
-
-── Download stats ──────────────
-  Всего в архиве:   156 видео
-  Последний запуск: +5 новых
-
-  [████████░░░░░░░] 5 / ?       ← только во время запуска
-  Фаза: Analyzing...
+Правильно:
+gallery-dl --dump-json https://instagram.com/user/saved/
+→ выдаёт метаданные с post_url каждого рила
 ```
 
-Поведение:
-- При `phase === "idle"`: показывает "Всего в архиве: N" + "Последний запуск: +M новых"
-- При `phase === "downloading"`: добавляется прогресс-счётчик `session_downloaded` + лейбл "Фаза: Downloading..."
-- При `phase === "analyzing"`: прогресс-бар пропадает, лейбл меняется на "Analyzing..."
-- Polling каждые **3с** пока `running === true`, иначе раз при открытии
+Или ещё проще — вообще отказаться от get-url и качать gallery-dl'ом нормально с `--download-archive` (SQLite), а прогресс считать по файлам в `saved_videos/raw/`.
 
-### `LogsModal` — итоговая строка
-
-Итоговая сводка появляется автоматически в логах как обычная строка:
-```
-=== download: скачано 5 новых, итого в архиве 156 ===
-```
-Это уже покрывает задачу "видеть в модалке" — ничего менять в `LogsModal` не нужно.
-
-### Файлы которые меняются
-
-- `trigger_server.py` — `_dl_stats`, фоновый polling SQLite, `/dl-stats` эндпоинт
-- `viewer/api/main.py` — прокси `/api/pipeline/dl-stats`
-- `viewer/frontend/src/components/PipelinePanel.jsx` — polling stats, новый JSX-блок
-- `viewer/frontend/src/components/PipelinePanel.css` — стили для stats-блока
-
-Два новых файла не нужны — всё вписывается в существующие компоненты.
-
-Фронтенд выглядит нормально?
+Хочешь переделать `download.sh` на нормальный флоу с архивом? Тогда:
+- gallery-dl сам склеивает аудио+видео
+- прогресс = считаем mp4 файлы в `raw/` пока идёт скачивание
+- total = берём из `--dump-json` или просто не показываем (N скачано, total неизвестен до конца)
 
 ## Git
 - Branch: main
-- Последний коммит: 292cf1b fix: consistent error handling in proxy endpoints, accurate model_id when no model loaded
-
+- Последний коммит: 2e11898 fix: anchor grep to ^https?:// to skip gallery-dl audio stream lines (| https://...)
+- Изменённые файлы:
+- CLAUDE.md
+- download.sh
 
 ## Связанные проекты
 
 
 ## Предыдущая сессия
-[[claude-sessions/2026-04-14-reelect-01-04]]
+[[claude-sessions/2026-04-14-reelect-11-16]]
 
 ## TODO на следующую сессию
 - [ ] 
 
 ---
-*← [[claude-sessions/2026-04-14-reelect-01-04]]*
+*← [[claude-sessions/2026-04-14-reelect-11-16]]*
 
 
 ---
-### 📄 2026-04-14-reelect-01-02.md
+### 📄 2026-04-14-reelect-11-16.md
 ---
 date: 2026-04-14
-time: 01-02
+time: 11-16
 project: reelect
 tags: [claude-session, reelect]
 related: []
 ---
 
-# reelect — 2026-04-14 01-02
+# reelect — 2026-04-14 11-16
 
 ## Что было сделано
-## Три подхода
-
-**Подход А — Парсинг вывода gallery-dl в trigger_server.py (рекомендую)**
-
-`trigger_server.py` уже читает каждую строку subprocess. Добавляем regex-парсинг: считаем строки с `.mp4` (скачано), со `Skip` (пропущено), с `error` (ошибки). Счётчики хранятся в памяти (`_dl_stats`). Архив SQLite запрашиваем до и после запуска — разница = новых скачано за сессию. Новый эндпоинт `/stats` отдаёт всё это в JSON. Фронтенд: новый блок в `PipelinePanel` + прогресс-бар (poll каждые 2с).
-
-*Плюсы:* вся логика в одном месте, не трогаем bash-скрипт, real-time.  
-*Минусы:* зависит от формата вывода gallery-dl (нужно проверить реальный вывод).
-
----
-
-**Подход Б — Обёртка download_wrapper.py вместо download.sh**
-
-Python-скрипт запускает gallery-dl через subprocess, парсит stdout построчно, пишет прогресс в файл `/tmp/dl_stats.json`. `trigger_server.py` читает файл при каждом `/stats` запросе.
-
-*Плюсы:* чёткое разделение ответственности, легко тестировать парсинг отдельно.  
-*Минусы:* ещё один файл, дублирует часть логики из trigger_server.py.
-
----
-
-**Подход В — Счётчики только через SQLite архив (без парсинга stdout)**
-
-До запуска: `SELECT COUNT(*) FROM archive` → сохраняем baseline. После: снова COUNT → разница = скачано. Прогресс в реальном времени не работает — только итог.
-
-*Минусы:* нет реального прогресса во время запуска. Не подходит для прогресс-бара.
-
----
-
-**Рекомендую А** — даёт реальный прогресс и не усложняет архитектуру. Формат вывода gallery-dl проверим по реальным строкам в `download_log.txt`.
-
-Согласен с подходом А?
+Снова удали `url_cache.txt` и запусти. Теперь `grep -E '^https?://.*\.mp4'` берёт только строки начинающиеся с `http` — аудио-строки вида `| https://...` отфильтруются.
 
 ## Git
 - Branch: main
-- Последний коммит: 292cf1b fix: consistent error handling in proxy endpoints, accurate model_id when no model loaded
-
+- Последний коммит: 2e11898 fix: anchor grep to ^https?:// to skip gallery-dl audio stream lines (| https://...)
+- Изменённые файлы:
+- CLAUDE.md
 
 ## Связанные проекты
 
 
 ## Предыдущая сессия
-[[claude-sessions/2026-04-14-reelect-01-00]]
+[[claude-sessions/2026-04-14-reelect-11-15]]
 
 ## TODO на следующую сессию
 - [ ] 
 
 ---
-*← [[claude-sessions/2026-04-14-reelect-01-00]]*
+*← [[claude-sessions/2026-04-14-reelect-11-15]]*
 
 
 ---

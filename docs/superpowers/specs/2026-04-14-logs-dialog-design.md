@@ -40,7 +40,7 @@ Updated in `_lm_chat()` each time a request is made to LM Studio.
 Returns current `_log_buffer`, `_running`, and `_last_run`.
 
 **New endpoint `GET /lm-status`:**
-- Makes `GET {LM_STUDIO_URL}/v1/models` with 3s timeout
+- Makes `GET {LLM_BASE_URL}/v1/models` with 3s timeout
 - Returns:
 ```json
 {

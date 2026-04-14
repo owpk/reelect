@@ -2,6 +2,7 @@
 
 > Your saved Instagram Reels — transcribed, structured, and actually useful.
 > Runs entirely on your machine. No cloud. No API keys. No cost per request.
+> Works with any OpenAI-compatible LLM provider (LM Studio, OpenRouter, Ollama, etc.).
 
 <!-- screenshot: main viewer grid with actionable cards -->
 ![Reelect viewer](.github/assets/viewer.jpg)
@@ -116,8 +117,14 @@ cp .env.example .env
 ```
 INSTAGRAM_USERNAME=your_handle
 
-LM_STUDIO_URL=http://host.docker.internal:1234/v1
-LM_STUDIO_MODEL=qwen3.5-9b
+# For LM Studio (local):
+LLM_BASE_URL=http://host.docker.internal:1234/v1
+LLM_MODEL=qwen2.5-vl-7b-instruct
+
+# For OpenRouter (cloud):
+# LLM_BASE_URL=https://openrouter.ai/api/v1
+# LLM_MODEL=qwen/qwen2.5-vl-7b-instruct
+# LLM_API_KEY=sk-or-...
 
 CRON_SCHEDULE="0 */12 * * *"
 ```
@@ -146,14 +153,15 @@ The pipeline runs on schedule automatically. You can also trigger it manually fr
 |---|---|---|
 | `INSTAGRAM_USERNAME` | — | Your Instagram handle |
 | `CRON_SCHEDULE` | `0 */12 * * *` | Pipeline run schedule |
-| `LM_STUDIO_URL` | `http://host.docker.internal:1234/v1` | LM Studio endpoint |
-| `LM_STUDIO_MODEL` | — | Model name (must match LM Studio exactly) |
-| `LM_STUDIO_NATIVE_VIDEO` | `false` | Send full video to model instead of frames |
-| `LM_STUDIO_THINKING_BUDGET` | `512` | Reasoning token limit for thinking models |
-| `LM_STUDIO_MAX_TOKENS_VISUAL` | `4096` | Max tokens for visual description |
-| `LM_STUDIO_MAX_TOKENS_METADATA` | `8192` | Max tokens for metadata + actionable |
+| `LLM_BASE_URL` | `http://host.docker.internal:1234/v1` | OpenAI-compatible endpoint (LM Studio, OpenRouter, Ollama, etc.) |
+| `LLM_MODEL` | — | Model name (must match provider exactly) |
+| `LLM_API_KEY` | — | Optional API key (only if provider requires auth) |
+| `LLM_NATIVE_VIDEO` | `false` | Send full video to model instead of frames |
+| `LLM_THINKING_BUDGET` | `512` | Reasoning token limit for thinking models |
+| `LLM_MAX_TOKENS_VISUAL` | `4096` | Max tokens for visual description |
+| `LLM_MAX_TOKENS_METADATA` | `8192` | Max tokens for metadata + actionable |
 | `MAX_WORKERS` | `3` | Parallel whisper + ffmpeg workers |
-| `LM_STUDIO_CONCURRENCY` | `1` | Concurrent LLM requests |
+| `LLM_CONCURRENCY` | `1` | Concurrent LLM requests |
 
 ---
 

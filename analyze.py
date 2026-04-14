@@ -23,21 +23,23 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 META_DIR = Path("saved_videos/meta")
-FRAME_INTERVAL_SEC = 5
-MAX_FRAMES = 10
+FRAME_INTERVAL_SEC = 1
+MAX_FRAMES = 350
 
 _default_lm_url = "http://localhost:1234/v1"
-LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", _default_lm_url)
-LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "qwen2.5-vl-7b-instruct")
-LM_STUDIO_API_KEY = os.environ.get("LM_STUDIO_API_KEY", "lm-studio")
-LM_STUDIO_CONCURRENCY = int(os.environ.get("LM_STUDIO_CONCURRENCY", "1"))
-LM_STUDIO_NATIVE_VIDEO = os.environ.get("LM_STUDIO_NATIVE_VIDEO", "false").lower() == "true"
-# Thinking budget for reasoning models (e.g. Qwen3). -1 = unlimited, 0 = disabled
-LM_STUDIO_THINKING_BUDGET = int(os.environ.get("LM_STUDIO_THINKING_BUDGET", "-1"))
-LM_STUDIO_MAX_TOKENS_VISUAL = int(os.environ.get("LM_STUDIO_MAX_TOKENS_VISUAL", "1024"))
-LM_STUDIO_MAX_TOKENS_METADATA = int(os.environ.get("LM_STUDIO_MAX_TOKENS_METADATA", "4096"))
 
-_lm_semaphore = threading.Semaphore(LM_STUDIO_CONCURRENCY)
+# LLM API configuration
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", _default_lm_url)
+LLM_MODEL = os.environ.get("LLM_MODEL", "qwen2.5-vl-7b-instruct")
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "lm-studio")
+LLM_CONCURRENCY = int(os.environ.get("LLM_CONCURRENCY", "1"))
+LLM_NATIVE_VIDEO = os.environ.get("LLM_NATIVE_VIDEO", "false").lower() == "true"
+
+LLM_THINKING_BUDGET = int(os.environ.get("LLM_THINKING_BUDGET", "-1"))
+LLM_MAX_TOKENS_VISUAL = int(os.environ.get("LLM_MAX_TOKENS_VISUAL", "1024"))
+LLM_MAX_TOKENS_METADATA = int(os.environ.get("LLM_MAX_TOKENS_METADATA", "4096"))
+
+_llm_semaphore = threading.Semaphore(LLM_CONCURRENCY)
 
 # Shared across threads — both are thread-safe
 _client: OpenAI | None = None
@@ -57,7 +59,7 @@ def _write_lm_request_time() -> None:
 def get_client() -> OpenAI:
     global _client
     if _client is None:
-        _client = OpenAI(base_url=LM_STUDIO_URL, api_key=LM_STUDIO_API_KEY)
+        _client = OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
     return _client
 
 
@@ -135,12 +137,12 @@ def _lm_chat(messages: list, max_tokens: int, label: str = "") -> str:
     """Streams a chat completion. Prints reasoning to console, returns final content."""
     _write_lm_request_time()
     extra: dict = {}
-    if LM_STUDIO_THINKING_BUDGET >= 0:
-        extra["thinking"] = {"type": "enabled", "budget_tokens": LM_STUDIO_THINKING_BUDGET}
+    if LLM_THINKING_BUDGET >= 0:
+            extra["thinking"] = {"type": "enabled", "budget_tokens": LLM_THINKING_BUDGET}
 
-    with _lm_semaphore:
+    with _llm_semaphore:
         stream = get_client().chat.completions.create(
-            model=LM_STUDIO_MODEL,
+            model=LLM_MODEL,
             messages=messages,
             max_tokens=max_tokens,
             stream=True,
@@ -189,7 +191,7 @@ def describe_frames(video_path: Path, frames_b64: list[str]) -> str:
 
     visual = _lm_chat(
         messages=[{"role": "user", "content": content}],
-        max_tokens=LM_STUDIO_MAX_TOKENS_VISUAL,
+        max_tokens=LLM_MAX_TOKENS_VISUAL,
         label=video_path.name,
     ).strip()
     if visual:
@@ -211,7 +213,7 @@ def describe_video_native(video_path: Path) -> str:
 
     visual = _lm_chat(
         messages=[{"role": "user", "content": content}],
-        max_tokens=LM_STUDIO_MAX_TOKENS_VISUAL,
+        max_tokens=LLM_MAX_TOKENS_VISUAL,
         label=video_path.name,
     ).strip()
     if visual:
@@ -256,7 +258,7 @@ Return only the JSON object. No markdown, no explanation, no code fences."""
 
     text = _lm_chat(
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=LM_STUDIO_MAX_TOKENS_METADATA,
+        max_tokens=LLM_MAX_TOKENS_METADATA,
         label="metadata",
     ).strip()
 
@@ -292,7 +294,7 @@ def analyze(video_path: Path) -> Path:
     logger.info(f"  [{video_path.name}] transcribing...")
     transcript = extract_transcript(video_path)
 
-    if LM_STUDIO_NATIVE_VIDEO:
+    if LLM_NATIVE_VIDEO:
         logger.info(f"  [{video_path.name}] describing video (native)...")
         visual = describe_video_native(video_path)
     else:

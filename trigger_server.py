@@ -19,8 +19,9 @@ logger = logging.getLogger(__name__)
 
 COOKIES_FILE = os.environ.get("COOKIES_FILE", "/cookies/cookies.txt")
 MAX_LOG_LINES = 2000
-LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://localhost:1234/v1")
-LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "qwen2.5-vl-7b-instruct")
+# LLM API configuration
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://localhost:1234/v1")
+LLM_MODEL = os.environ.get("LLM_MODEL", "qwen2.5-vl-7b-instruct")
 LM_STATUS_FILE = "/tmp/lm_status.json"
 ARCHIVE_DB = os.environ.get("ARCHIVE_DB", "saved_videos/downloaded_archive.db")
 RAW_DIR = os.environ.get("RAW_DIR", "saved_videos/raw")
@@ -240,7 +241,7 @@ async def dl_stats():
 async def lm_status():
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
-            r = await client.get(f"{LM_STUDIO_URL}/models")
+            r = await client.get(f"{LLM_BASE_URL}/models")
             models = r.json().get("data", [])
             model_id = models[0]["id"] if models else None
             connected = True
@@ -257,7 +258,7 @@ async def lm_status():
 
     return {
         "connected": connected,
-        "url": LM_STUDIO_URL,
+        "url": LLM_BASE_URL,
         "model": model_id,
         "last_request_at": last_request_at,
     }
