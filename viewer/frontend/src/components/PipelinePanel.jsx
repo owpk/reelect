@@ -67,24 +67,10 @@ export default function PipelinePanel() {
     }
   }
 
-  async function handleRetryFailed() {
-    try {
-      const r = await fetch("/api/pipeline/retry-failed", { method: "POST" });
-      const d = await r.json();
-      if (d.status === "started" || d.status === "already_running") {
-        setRunning(true);
-        setLogsOpen(true);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
   const phase = dlStats?.phase;
   const phaseLabel =
-    phase === "fetching_urls" ? "Получаю список URL..." :
-    phase === "downloading"   ? "Загрузка..."           :
-    phase === "analyzing"     ? "Анализ..."             : null;
+    phase === "downloading" ? "Загрузка..." :
+    phase === "analyzing"   ? "Анализ..."   : null;
 
   return (
     <div className="pipeline">
@@ -112,24 +98,16 @@ export default function PipelinePanel() {
           {/* Download section */}
           <div className="dl-stats-section">
             <div className="dl-stats-title">Загрузка</div>
-            {phase === "fetching_urls" ? (
-              <div className="dl-phase">Получаю список URL...</div>
-            ) : (
-              <>
-                <div className="dl-stats-row">
-                  <span className="dl-stats-label">Скачано</span>
-                  <span className={`dl-stats-value${phase === "downloading" ? " active" : ""}`}>
-                    {dlStats.downloaded} / {dlStats.total_urls}
-                  </span>
-                </div>
-                {dlStats.failed > 0 && (
-                  <div className="dl-stats-row">
-                    <span className="dl-failed-label">Ошибок</span>
-                    <span className="dl-failed-value">{dlStats.failed}</span>
-                  </div>
-                )}
-              </>
-            )}
+            <div className="dl-stats-row">
+              <span className="dl-stats-label">Скачано</span>
+              <span className={`dl-stats-value${phase === "downloading" ? " active" : ""}`}>
+                {dlStats.session_downloaded} новых
+              </span>
+            </div>
+            <div className="dl-stats-row">
+              <span className="dl-stats-label">В архиве</span>
+              <span className="dl-stats-value">{dlStats.total_archived}</span>
+            </div>
           </div>
 
           {/* Analyze section */}
@@ -144,15 +122,8 @@ export default function PipelinePanel() {
           </div>
 
           {/* Phase label while running */}
-          {running && phaseLabel && phase !== "fetching_urls" && (
+          {running && phaseLabel && (
             <div className="dl-phase">{phaseLabel}</div>
-          )}
-
-          {/* Retry failed button */}
-          {!running && dlStats.failed > 0 && (
-            <button className="btn-retry" onClick={handleRetryFailed}>
-              ↺ Retry {dlStats.failed} failed
-            </button>
           )}
         </div>
       )}

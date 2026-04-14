@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import os
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import FastAPI
@@ -21,8 +22,7 @@ MAX_LOG_LINES = 2000
 LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://localhost:1234/v1")
 LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "qwen2.5-vl-7b-instruct")
 LM_STATUS_FILE = "/tmp/lm_status.json"
-URL_CACHE_FILE = os.environ.get("URL_CACHE_FILE", "saved_videos/url_cache.txt")
-STATUS_CACHE_FILE = os.environ.get("STATUS_CACHE_FILE", "saved_videos/status_cache.txt")
+ARCHIVE_DB = os.environ.get("ARCHIVE_DB", "saved_videos/downloaded_archive.db")
 RAW_DIR = os.environ.get("RAW_DIR", "saved_videos/raw")
 META_DIR = os.environ.get("META_DIR", "saved_videos/meta")
 DOWNLOAD_CMD = ["/app/download.sh", COOKIES_FILE]
@@ -30,9 +30,8 @@ ANALYZE_CMD = ["python3", "/app/batch_analyze.py"]
 
 _dl_stats: dict = {
     "phase": "idle",
-    "total_urls": 0,
-    "downloaded": 0,
-    "failed": 0,
+    "session_downloaded": 0,
+    "total_archived": 0,
     "total_videos": 0,
     "analyzed": 0,
 }
@@ -51,25 +50,19 @@ def _append_log(line: str) -> None:
         _log_buffer.pop(0)
 
 
-def _read_download_stats() -> dict:
-    total_urls = 0
-    downloaded = 0
-    failed = 0
+def _count_raw_videos() -> int:
     try:
-        with open(URL_CACHE_FILE) as f:
-            total_urls = sum(1 for line in f if line.strip())
+        return len(list(Path(RAW_DIR).rglob("*.mp4")))
     except Exception:
-        pass
+        return 0
+
+
+def _count_archive() -> int:
     try:
-        with open(STATUS_CACHE_FILE) as f:
-            for line in f:
-                if "|DONE" in line:
-                    downloaded += 1
-                elif "|FAILED" in line:
-                    failed += 1
+        with sqlite3.connect(ARCHIVE_DB) as con:
+            return con.execute("SELECT COUNT(*) FROM archive").fetchone()[0]
     except Exception:
-        pass
-    return {"total_urls": total_urls, "downloaded": downloaded, "failed": failed}
+        return 0
 
 
 def _read_analyze_stats() -> dict:
@@ -84,33 +77,16 @@ def _read_analyze_stats() -> dict:
     return {"total_videos": total_videos, "analyzed": analyzed}
 
 
-def _clear_failed_from_status_cache() -> int:
-    """Remove FAILED lines from status_cache.txt. Returns count of removed lines."""
-    try:
-        path = Path(STATUS_CACHE_FILE)
-        if not path.exists():
-            return 0
-        lines = path.read_text().splitlines()
-        kept = [ln for ln in lines if "|FAILED" not in ln]
-        removed = len(lines) - len(kept)
-        path.write_text("\n".join(kept) + ("\n" if kept else ""))
-        return removed
-    except Exception as exc:
-        logger.debug("_clear_failed_from_status_cache failed: %s", exc)
-        return 0
-
-
-async def _poll_stats() -> None:
-    """Background task: update _dl_stats every 3s. Auto-transitions fetching_urls→downloading."""
+async def _poll_stats(baseline: int = 0) -> None:
+    """Background task: update _dl_stats every 3s."""
     while True:
         await asyncio.sleep(3)
-        ds = _read_download_stats()
-        _dl_stats["total_urls"] = ds["total_urls"]
-        _dl_stats["downloaded"] = ds["downloaded"]
-        _dl_stats["failed"] = ds["failed"]
-        if _dl_stats["phase"] == "fetching_urls" and ds["total_urls"] > 0:
-            _dl_stats["phase"] = "downloading"
-        if _dl_stats["phase"] == "analyzing":
+        if _dl_stats["phase"] == "downloading":
+            current = _count_raw_videos()
+            _dl_stats["session_downloaded"] = current - baseline
+            _dl_stats["total_videos"] = current
+            _dl_stats["total_archived"] = _count_archive()
+        elif _dl_stats["phase"] == "analyzing":
             as_ = _read_analyze_stats()
             _dl_stats["total_videos"] = as_["total_videos"]
             _dl_stats["analyzed"] = as_["analyzed"]
@@ -124,10 +100,15 @@ async def _run_pipeline() -> None:
     _append_log(f"=== started at {_last_run} ===")
 
     try:
-        # ── Phase 1: Download (fetching_urls → downloading) ────────────────
-        _dl_stats["phase"] = "fetching_urls"
-        _dl_stats.update({"total_urls": 0, "downloaded": 0, "failed": 0})
-        poll_task = asyncio.create_task(_poll_stats())
+        # ── Phase 1: Download ──────────────────────────────────────────────
+        baseline = _count_raw_videos()
+        _dl_stats.update({
+            "phase": "downloading",
+            "session_downloaded": 0,
+            "total_archived": _count_archive(),
+            "total_videos": baseline,
+        })
+        poll_task = asyncio.create_task(_poll_stats(baseline))
 
         try:
             process = await asyncio.create_subprocess_exec(
@@ -147,23 +128,31 @@ async def _run_pipeline() -> None:
             except asyncio.CancelledError:
                 pass
 
-        ds = _read_download_stats()
-        _dl_stats.update(ds)
-        _append_log(
-            f"=== download: скачано {ds['downloaded']}, ошибок {ds['failed']}, всего URL {ds['total_urls']} ==="
-        )
+        final_videos = _count_raw_videos()
+        session_downloaded = final_videos - baseline
+        total_archived = _count_archive()
+        _dl_stats.update({
+            "session_downloaded": session_downloaded,
+            "total_archived": total_archived,
+            "total_videos": final_videos,
+        })
+
         if process.returncode < 0:
             _append_log("=== pipeline остановлен пользователем ===")
             return
+
+        _append_log(
+            f"=== download: скачано {session_downloaded} новых, всего в архиве {total_archived} ==="
+        )
         _append_log(f"=== download.sh finished (exit code {process.returncode}) ===")
+
         if process.returncode != 0:
             _append_log("=== download.sh failed — skipping analyze phase ===")
             return
 
         # ── Phase 2: Analyze ───────────────────────────────────────────────
-        _dl_stats["phase"] = "analyzing"
         as_ = _read_analyze_stats()
-        _dl_stats.update(as_)
+        _dl_stats.update({"phase": "analyzing", **as_})
         poll_task2 = asyncio.create_task(_poll_stats())
 
         try:
@@ -203,7 +192,10 @@ async def _run_pipeline() -> None:
 
 @app.on_event("startup")
 async def _startup():
-    _dl_stats.update(_read_download_stats())
+    _dl_stats.update({
+        "total_videos": _count_raw_videos(),
+        "total_archived": _count_archive(),
+    })
     _dl_stats.update(_read_analyze_stats())
 
 
@@ -214,14 +206,6 @@ async def run():
     asyncio.create_task(_run_pipeline())
     return {"status": "started"}
 
-
-@app.post("/retry-failed")
-async def retry_failed():
-    if _running:
-        return {"status": "already_running"}
-    removed = _clear_failed_from_status_cache()
-    asyncio.create_task(_run_pipeline())
-    return {"status": "started", "cleared_failed": removed}
 
 
 @app.post("/stop")
