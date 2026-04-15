@@ -20,6 +20,7 @@ DEFAULTS = {
     "LLM_THINKING_BUDGET": "512",
     "LLM_MAX_TOKENS_VISUAL": "4096",
     "LLM_MAX_TOKENS_METADATA": "8192",
+    "LANG": "en",
 }
 
 # Keys that can be edited via UI (excludes CRON_SCHEDULE)
@@ -34,6 +35,7 @@ UI_EDITABLE_KEYS = [
     "LLM_THINKING_BUDGET",
     "LLM_MAX_TOKENS_VISUAL",
     "LLM_MAX_TOKENS_METADATA",
+    "LANG",
 ]
 
 # Keys that are NOT editable via UI

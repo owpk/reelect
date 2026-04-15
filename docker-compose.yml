@@ -9,6 +9,7 @@ services:
       - ./cookies.txt:/cookies/cookies.txt:ro
       - ./saved_videos:/app/saved_videos
       - ./.env:/app/.env
+      - ./prompts:/app/prompts:ro
 
   viewer:
     build: ./viewer

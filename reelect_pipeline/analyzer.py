@@ -13,6 +13,7 @@ from reelect_pipeline.models import ReelManifest
 from reelect_pipeline.settings import PipelineSettings
 
 LM_STATUS_FILE = Path("/tmp/lm_status.json")
+PROMPTS_DIR = Path("/app/prompts")
 
 
 class ReelAnalyzer:
@@ -21,6 +22,7 @@ class ReelAnalyzer:
         self.meta_root = meta_root
         self._client: OpenAI | None = None
         self._semaphore = threading.Semaphore(settings.llm_concurrency)
+        self._prompt_template = self._load_prompt_template()
 
     def analyze_media(self, manifest: ReelManifest) -> ReelManifest:
         transcript = self._read_transcript(manifest)
@@ -156,37 +158,17 @@ class ReelAnalyzer:
         content.append({"type": "text", "text": prompt})
         return content
 
+    def _load_prompt_template(self) -> str:
+        lang = self.settings.lang if self.settings.lang in ("en", "ru") else "en"
+        prompt_path = PROMPTS_DIR / lang / "prompt.txt"
+        if prompt_path.exists():
+            return prompt_path.read_text(encoding="utf-8")
+        # Fallback to English
+        return (PROMPTS_DIR / "en" / "prompt.txt").read_text(encoding="utf-8")
+
     def _build_prompt(self, transcript: str) -> str:
         transcript_block = transcript if transcript else "(no speech detected)"
-        return f"""You are analyzing a short Instagram Reel.
-
-TRANSCRIPT:
-{transcript_block}
-
-Use the transcript and the visual inputs together.
-
-Return a JSON object with exactly these fields:
-- summary
-- category
-- tags
-- actionable
-
-Rules:
-- summary: 1-2 sentences, same language as transcript if transcript exists, otherwise English
-- category: exactly one lowercase label from: cooking, travel, fitness, tech, comedy, art, news, music, education, lifestyle, fashion, sports, animals, motivation, other
-- tags: array of 3-6 specific lowercase tags
-- actionable: extract only concrete reusable information, otherwise null
-
-Supported actionable types:
-- recipe
-- guide
-- recommendation
-- resource
-
-Format for actionable:
-{{"type": "recipe", "title": "...", "content": "..."}}
-
-Return only valid JSON. No markdown. No code fences."""
+        return self._prompt_template.format(transcript=transcript_block)
 
     def _normalize_model_payload(self, payload: dict[str, object] | str) -> dict[str, object]:
         if isinstance(payload, dict):

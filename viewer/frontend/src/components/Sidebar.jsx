@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import PipelinePanel from "./PipelinePanel.jsx";
 import "./Sidebar.css";
 
@@ -26,6 +27,38 @@ export default function Sidebar({
   onPipelineFinished,
 }) {
   const sorted = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+  const [lang, setLang] = useState("en");
+  const [loadingLang, setLoadingLang] = useState(true);
+
+  useEffect(() => {
+    async function loadLang() {
+      try {
+        const res = await fetch("/api/config");
+        const config = await res.json();
+        if (config.LANG && (config.LANG === "en" || config.LANG === "ru")) {
+          setLang(config.LANG);
+        }
+      } catch {
+        // Fallback to default
+      } finally {
+        setLoadingLang(false);
+      }
+    }
+    loadLang();
+  }, []);
+
+  async function changeLang(newLang) {
+    setLang(newLang);
+    try {
+      await fetch("/api/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: { LANG: newLang } }),
+      });
+    } catch {
+      // Silently fail
+    }
+  }
 
   return (
     <aside className="sidebar">
@@ -50,6 +83,18 @@ export default function Sidebar({
         </button>
       ))}
       <div className="sidebar-divider" />
+      <div className="lang-selector">
+        <label htmlFor="lang-select">LLM Language:</label>
+        <select
+          id="lang-select"
+          value={lang}
+          onChange={(e) => changeLang(e.target.value)}
+          disabled={loadingLang}
+        >
+          <option value="en">English</option>
+          <option value="ru">Русский</option>
+        </select>
+      </div>
       <PipelinePanel onFinished={onPipelineFinished} />
     </aside>
   );

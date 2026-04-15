@@ -19,6 +19,7 @@ class PipelineSettings:
     llm_max_tokens_visual: int
     llm_max_tokens_metadata: int
     cron_schedule: str
+    lang: str
 
 
 def load_pipeline_settings(env_path: str | Path = ".env") -> PipelineSettings:
@@ -35,5 +36,6 @@ def load_pipeline_settings(env_path: str | Path = ".env") -> PipelineSettings:
         llm_max_tokens_visual=int(data.get("LLM_MAX_TOKENS_VISUAL", "4096")),
         llm_max_tokens_metadata=int(data.get("LLM_MAX_TOKENS_METADATA", "8192")),
         cron_schedule=data.get("CRON_SCHEDULE", "0 * * * *"),
+        lang=data.get("LANG", "en"),
     )
 

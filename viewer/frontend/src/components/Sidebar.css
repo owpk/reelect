@@ -60,3 +60,32 @@
   background: var(--border);
   margin: 12px 8px;
 }
+
+.lang-selector {
+  margin: 12px 8px;
+  padding: 10px;
+  background: var(--surface2);
+  border-radius: 8px;
+}
+
+.lang-selector label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.lang-selector select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.lang-selector select:hover {
+  border-color: var(--text-muted);
+}

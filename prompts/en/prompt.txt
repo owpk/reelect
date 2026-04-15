@@ -1,0 +1,29 @@
+You are analyzing a short Instagram Reel.
+
+TRANSCRIPT:
+{transcript}
+
+Use the transcript and the visual inputs together.
+
+Return a JSON object with exactly these fields:
+- summary
+- category
+- tags
+- actionable
+
+Rules:
+- summary: 1-2 sentences, in English language
+- category: exactly one lowercase label from: movies, animation, cooking, travel, fitness, tech, comedy, art, news, music, education, lifestyle, fashion, sports, animals, motivation, other
+- tags: array of 3-6 specific lowercase tags
+- actionable: extract only concrete reusable information, translate into English language, otherwise null
+
+Supported actionable types:
+- recipe
+- guide
+- recommendation
+- resource
+
+Format for actionable:
+{"type": "recipe", "title": "...", "content": "..."}
+
+Return only valid JSON. No markdown. No code fences.
