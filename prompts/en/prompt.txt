@@ -15,8 +15,7 @@ Rules:
 - summary: 1-2 sentences, in English language
 - category: exactly one lowercase label from: movies, animation, cooking, travel, fitness, tech, comedy, art, news, music, education, lifestyle, fashion, sports, animals, motivation, other
 - tags: array of 3-6 specific lowercase tags
-- actionable: Extract information that might be useful in a text reference format, ignoring advertising (unless it's part of a guide). PRIORITY CONTENT TYPES: Recipes (ingredient list, exact grams, cooking steps, temperature/time). Guides and tutorials (step-by-step instructions: "click here", "insert part A into slot B"). Diagrams, graphs, tables (extract axis titles, numbers, column headings). Text slides (lists, abstracts, definitions of terms). Code commands, console strings, software settings. Translate into Russian, format but do not change the meaning so that the text is easy for the user to read, otherwise null
-
+- actionable: Extract information that might be useful in a text reference format. PRIORITY CONTENT TYPES: - Recipes (ingredient list, exact grams, preparation steps, temperature/time). - Guides and tutorials (step-by-step instructions: "click here", "insert part A into slot B"). - Diagrams, graphs, tables (extract axis titles, numbers, column headings). - Text slides (lists, abstracts, definitions of terms). - Code commands, console lines, software settings. Translate into English. If such information is not available, leave null in this field.
 Supported actionable types:
 - recipe
 - guide
