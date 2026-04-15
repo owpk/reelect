@@ -11,3 +11,4 @@ __pycache__
 viewer/frontend/node_modules/
 viewer/frontend/dist/
 docs/
+.pytest_cache
