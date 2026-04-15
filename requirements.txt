@@ -5,3 +5,4 @@ yt-dlp
 fastapi
 httpx
 uvicorn[standard]
+pytest

@@ -1,37 +1,35 @@
 #!/usr/bin/env python3
 """
 Micro HTTP server inside the pipeline container.
-Allows triggering pipeline.sh via HTTP and streaming its logs via SSE.
+Allows triggering the Python reel pipeline via HTTP and streaming its logs via SSE.
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
 import logging
-import os
 import sqlite3
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+
+import httpx
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
-import httpx
+from pydantic import BaseModel
 
 from config import load_env
 
 logger = logging.getLogger(__name__)
 
-_config = load_env(".env")
-COOKIES_FILE = os.environ.get("COOKIES_FILE", "/cookies/cookies.txt")
 MAX_LOG_LINES = 2000
-LLM_BASE_URL = _config.get("LLM_BASE_URL", "http://localhost:1234/v1")
-LLM_MODEL = _config.get("LLM_MODEL", "qwen2.5-vl-7b-instruct")
-LM_STATUS_FILE = "/tmp/lm_status.json"
-ARCHIVE_DB = os.environ.get("ARCHIVE_DB", "saved_videos/downloaded_archive.db")
-RAW_DIR = os.environ.get("RAW_DIR", "saved_videos/raw")
-META_DIR = os.environ.get("META_DIR", "saved_videos/meta")
-DOWNLOAD_CMD = ["/app/download.sh", COOKIES_FILE]
-ANALYZE_CMD = ["python3", "/app/batch_analyze.py"]
+LM_STATUS_FILE = Path("/tmp/lm_status.json")
+RAW_DIR = Path("saved_videos/raw")
+META_DIR = Path("saved_videos/meta")
+ARCHIVE_DB = Path("saved_videos/downloaded_archive.db")
 
-_dl_stats: dict = {
+_dl_stats: dict[str, object] = {
     "phase": "idle",
     "session_downloaded": 0,
     "total_archived": 0,
@@ -39,23 +37,53 @@ _dl_stats: dict = {
     "analyzed": 0,
 }
 
-app = FastAPI()
+_pipeline_state: dict[str, object] = {
+    "running": False,
+    "mode": None,
+    "phase": "idle",
+    "last_run": None,
+}
 
-_running = False
-_last_run: str | None = None
 _log_buffer: list[str] = []
 _current_process: asyncio.subprocess.Process | None = None
+
+
+class RunSingleRequest(BaseModel):
+    url: str
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    _dl_stats["total_archived"] = _count_archive()
+    _dl_stats.update(_read_analyze_stats())
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 def _append_log(line: str) -> None:
     _log_buffer.append(line)
     if len(_log_buffer) > MAX_LOG_LINES:
         _log_buffer.pop(0)
+    _apply_stage_marker(line)
+
+
+def _apply_stage_marker(line: str) -> None:
+    if line == "STAGE: downloading":
+        _pipeline_state["phase"] = "downloading"
+        _dl_stats["phase"] = "downloading"
+    elif line == "STAGE: parsing":
+        _pipeline_state["phase"] = "parsing"
+        _dl_stats["phase"] = "parsing"
+    elif line == "STAGE: analyzing":
+        _pipeline_state["phase"] = "analyzing"
+        _dl_stats["phase"] = "analyzing"
 
 
 def _count_raw_videos() -> int:
     try:
-        return len(list(Path(RAW_DIR).rglob("*.mp4")))
+        return len(list(RAW_DIR.rglob("*.mp4")))
     except Exception:
         return 0
 
@@ -68,157 +96,133 @@ def _count_archive() -> int:
         return 0
 
 
-def _read_analyze_stats() -> dict:
+def _read_analyze_stats() -> dict[str, int]:
     try:
-        total_videos = len(list(Path(RAW_DIR).rglob("*.mp4")))
+        total_videos = len(list(RAW_DIR.rglob("*.mp4")))
     except Exception:
         total_videos = 0
     try:
-        analyzed = len(list(Path(META_DIR).glob("*.json")))
+        analyzed = len(list(META_DIR.glob("*.json")))
     except Exception:
         analyzed = 0
     return {"total_videos": total_videos, "analyzed": analyzed}
 
 
+def _runtime_config() -> dict[str, str]:
+    return load_env(".env")
+
+
+def _build_cli_command(mode: str, url: str | None = None) -> list[str]:
+    command = ["python3", "-m", "reelect_pipeline.cli", mode]
+    if url:
+        command.append(url)
+    return command
+
+
 async def _poll_stats(baseline: int = 0) -> None:
-    """Background task: update _dl_stats every 3s."""
     while True:
-        await asyncio.sleep(3)
-        if _dl_stats["phase"] == "downloading":
+        await asyncio.sleep(1)
+        phase = _pipeline_state["phase"]
+        if phase == "downloading":
             current = _count_raw_videos()
             _dl_stats["session_downloaded"] = current - baseline
             _dl_stats["total_videos"] = current
             _dl_stats["total_archived"] = _count_archive()
-        elif _dl_stats["phase"] == "analyzing":
-            as_ = _read_analyze_stats()
-            _dl_stats["total_videos"] = as_["total_videos"]
-            _dl_stats["analyzed"] = as_["analyzed"]
+        elif phase in {"parsing", "analyzing"}:
+            _dl_stats.update(_read_analyze_stats())
 
 
-async def _run_pipeline() -> None:
-    global _running, _last_run, _current_process
-    _running = True
-    _last_run = datetime.now(timezone.utc).isoformat()
+async def _run_pipeline_subprocess(mode: str, url: str | None = None) -> None:
+    global _current_process
+
+    _pipeline_state["running"] = True
+    _pipeline_state["mode"] = "single" if mode == "run-single" else "saved"
+    _pipeline_state["last_run"] = datetime.now(timezone.utc).isoformat()
+    _pipeline_state["phase"] = "idle"
+
     _log_buffer.clear()
-    _append_log(f"=== started at {_last_run} ===")
+    _append_log(f"=== started at {_pipeline_state['last_run']} ===")
 
-    try:
-        # ── Phase 1: Download ──────────────────────────────────────────────
-        baseline = _count_raw_videos()
-        _dl_stats.update({
-            "phase": "downloading",
+    baseline = _count_raw_videos()
+    _dl_stats.update(
+        {
+            "phase": "idle",
             "session_downloaded": 0,
             "total_archived": _count_archive(),
             "total_videos": baseline,
-        })
-        poll_task = asyncio.create_task(_poll_stats(baseline))
+            "analyzed": _read_analyze_stats()["analyzed"],
+        }
+    )
+    poll_task = asyncio.create_task(_poll_stats(baseline))
 
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *DOWNLOAD_CMD,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
-            )
-            _current_process = process
-            async for raw in process.stdout:
-                _append_log(raw.decode(errors="replace").rstrip())
-            await process.wait()
-        finally:
-            _current_process = None
-            poll_task.cancel()
-            try:
-                await poll_task
-            except asyncio.CancelledError:
-                pass
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *_build_cli_command(mode, url),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        _current_process = process
 
-        final_videos = _count_raw_videos()
-        session_downloaded = final_videos - baseline
-        total_archived = _count_archive()
-        _dl_stats.update({
-            "session_downloaded": session_downloaded,
-            "total_archived": total_archived,
-            "total_videos": final_videos,
-        })
+        assert process.stdout is not None
+        async for raw in process.stdout:
+            _append_log(raw.decode(errors="replace").rstrip())
+
+        await process.wait()
 
         if process.returncode < 0:
-            _append_log("=== pipeline остановлен пользователем ===")
-            return
-
-        _append_log(
-            f"=== download: скачано {session_downloaded} новых, всего в архиве {total_archived} ==="
-        )
-        _append_log(f"=== download.sh finished (exit code {process.returncode}) ===")
-
-        if process.returncode != 0:
-            _append_log("=== download.sh failed — skipping analyze phase ===")
-            return
-
-        # ── Phase 2: Analyze ───────────────────────────────────────────────
-        as_ = _read_analyze_stats()
-        _dl_stats.update({"phase": "analyzing", **as_})
-        poll_task2 = asyncio.create_task(_poll_stats())
-
-        try:
-            process2 = await asyncio.create_subprocess_exec(
-                *ANALYZE_CMD,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
-            )
-            _current_process = process2
-            async for raw in process2.stdout:
-                _append_log(raw.decode(errors="replace").rstrip())
-            await process2.wait()
-        finally:
-            _current_process = None
-            poll_task2.cancel()
-            try:
-                await poll_task2
-            except asyncio.CancelledError:
-                pass
-
-        as_ = _read_analyze_stats()
-        _dl_stats.update(as_)
-        if process2.returncode < 0:
-            _append_log("=== pipeline остановлен пользователем ===")
-            return
-        _append_log(
-            f"=== analyze: проанализировано {as_['analyzed']} / {as_['total_videos']} видео ==="
-        )
-        _append_log(f"=== batch_analyze.py finished (exit code {process2.returncode}) ===")
-
-    except Exception as e:
-        _append_log(f"=== error: {e} ===")
+            _append_log("=== pipeline stopped by user ===")
+        elif process.returncode != 0:
+            _append_log(f"=== pipeline failed (exit code {process.returncode}) ===")
+        else:
+            _append_log(f"=== pipeline finished (mode={_pipeline_state['mode']}) ===")
+    except Exception as exc:
+        _append_log(f"=== error: {exc} ===")
     finally:
+        _current_process = None
+        poll_task.cancel()
+        try:
+            await poll_task
+        except asyncio.CancelledError:
+            pass
+        _dl_stats["total_archived"] = _count_archive()
+        _dl_stats.update(_read_analyze_stats())
         _dl_stats["phase"] = "idle"
-        _running = False
-
-
-@app.on_event("startup")
-async def _startup():
-    _dl_stats.update({
-        "total_videos": _count_raw_videos(),
-        "total_archived": _count_archive(),
-    })
-    _dl_stats.update(_read_analyze_stats())
+        _pipeline_state["running"] = False
+        _pipeline_state["phase"] = "idle"
 
 
 @app.post("/run")
-async def run():
-    if _running:
+async def run_saved_alias():
+    if _pipeline_state["running"]:
         return {"status": "already_running"}
-    asyncio.create_task(_run_pipeline())
-    return {"status": "started"}
+    asyncio.create_task(_run_pipeline_subprocess("run-saved"))
+    return {"status": "started", "mode": "saved"}
 
+
+@app.post("/run/saved")
+async def run_saved():
+    if _pipeline_state["running"]:
+        return {"status": "already_running"}
+    asyncio.create_task(_run_pipeline_subprocess("run-saved"))
+    return {"status": "started", "mode": "saved"}
+
+
+@app.post("/run/single")
+async def run_single(payload: RunSingleRequest):
+    if _pipeline_state["running"]:
+        return {"status": "already_running"}
+    asyncio.create_task(_run_pipeline_subprocess("run-single", payload.url))
+    return {"status": "started", "mode": "single"}
 
 
 @app.post("/stop")
 async def stop():
-    if not _running:
+    if not _pipeline_state["running"]:
         return {"status": "not_running"}
-    p = _current_process
-    if p is not None:
+    process = _current_process
+    if process is not None:
         try:
-            p.terminate()
+            process.terminate()
         except ProcessLookupError:
             pass
     return {"status": "stopping"}
@@ -226,42 +230,56 @@ async def stop():
 
 @app.get("/status")
 async def status():
-    return {"running": _running, "last_run": _last_run}
+    return {
+        "running": _pipeline_state["running"],
+        "last_run": _pipeline_state["last_run"],
+        "mode": _pipeline_state["mode"],
+        "phase": _pipeline_state["phase"],
+    }
 
 
 @app.get("/logs")
 async def logs():
-    return {"lines": list(_log_buffer), "running": _running, "last_run": _last_run}
+    return {
+        "lines": list(_log_buffer),
+        "running": _pipeline_state["running"],
+        "last_run": _pipeline_state["last_run"],
+    }
 
 
 @app.get("/dl-stats")
 async def dl_stats():
-    return {**_dl_stats, "running": _running}
+    return {**_dl_stats, "running": _pipeline_state["running"]}
 
 
 @app.get("/lm-status")
 async def lm_status():
+    config = _runtime_config()
+    llm_base_url = config.get("LLM_BASE_URL", "http://localhost:1234/v1")
+    llm_model = config.get("LLM_MODEL")
+
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
-            r = await client.get(f"{LLM_BASE_URL}/models")
-            models = r.json().get("data", [])
-            model_id = models[0]["id"] if models else None
+            response = await client.get(f"{llm_base_url}/models")
+            models = response.json().get("data", [])
+            detected_model = models[0]["id"] if models else llm_model
             connected = True
     except Exception as exc:
-        logger.debug("lm-status: LM Studio unreachable: %s", exc)
-        model_id = None
+        logger.debug("lm-status: provider unreachable: %s", exc)
+        detected_model = llm_model
         connected = False
 
     try:
-        with open(LM_STATUS_FILE) as f:
-            last_request_at = json.load(f).get("last_request_at")
+        last_request_at = json.loads(LM_STATUS_FILE.read_text(encoding="utf-8")).get(
+            "last_request_at"
+        )
     except Exception:
         last_request_at = None
 
     return {
         "connected": connected,
-        "url": LLM_BASE_URL,
-        "model": model_id,
+        "url": llm_base_url,
+        "model": detected_model,
         "last_request_at": last_request_at,
     }
 
@@ -274,7 +292,7 @@ async def stream():
             while pos < len(_log_buffer):
                 yield f"data: {_log_buffer[pos]}\n\n"
                 pos += 1
-            if not _running and pos >= len(_log_buffer):
+            if not _pipeline_state["running"] and pos >= len(_log_buffer):
                 yield "data: __done__\n\n"
                 break
             await asyncio.sleep(0.2)

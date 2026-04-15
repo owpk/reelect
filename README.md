@@ -54,13 +54,16 @@ The card in the viewer shows the recipe directly — no need to watch the video.
 ## How it works
 
 ```
-Instagram Saved
+Instagram Saved or Direct Reel URL
       ↓
-  download.sh      →  saved_videos/raw/instagram/<user>/<id>.mp4
-                                            + <id>.transcript.txt  (Whisper cache)
-                                            + <id>.visual.txt      (vision cache)
+  reelect_pipeline.cli
       ↓
-  batch_analyze.py →  saved_videos/meta/<id>.json
+  download         →  saved_videos/raw/.../<id>.mp4
+                    +  <id>.manifest.json
+                    +  <id>.transcript.txt
+                    +  <id>.frames/frame_001.jpg
+      ↓
+  analyze          →  saved_videos/meta/<id>.json
                        { summary, category, tags, actionable }
       ↓
   viewer           →  http://localhost:8000
