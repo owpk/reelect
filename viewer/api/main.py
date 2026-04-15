@@ -22,6 +22,10 @@ class ConfigUpdate(BaseModel):
     config: dict
 
 
+class RunSingleRequest(BaseModel):
+    url: str
+
+
 @app.get("/api/videos")
 def list_videos():
     if not META_DIR.exists():
@@ -54,7 +58,21 @@ def stream_video(video_id: str):
 async def pipeline_run():
     try:
         async with httpx.AsyncClient() as client:
-            r = await client.post(f"{PIPELINE_URL}/run", timeout=5)
+            r = await client.post(f"{PIPELINE_URL}/run/saved", timeout=5)
+            return r.json()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Pipeline server unavailable")
+
+
+@app.post("/api/pipeline/run-single")
+async def pipeline_run_single(payload: RunSingleRequest):
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                f"{PIPELINE_URL}/run/single",
+                json={"url": payload.url},
+                timeout=5,
+            )
             return r.json()
     except Exception:
         raise HTTPException(status_code=503, detail="Pipeline server unavailable")

@@ -11,11 +11,21 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(null);
 
+  async function loadVideos() {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/videos");
+      const data = await response.json();
+      setVideos(data);
+    } catch {
+      setVideos([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    fetch("/api/videos")
-      .then((r) => r.json())
-      .then((data) => { setVideos(data); setLoading(false); })
-      .catch(() => setLoading(false));
+    loadVideos();
   }, []);
 
   const filtered = useMemo(() => {
@@ -39,6 +49,20 @@ export default function App() {
     return counts;
   }, [videos]);
 
+  useEffect(() => {
+    if (!selected) {
+      return;
+    }
+    const updatedSelected = videos.find((video) => video.id === selected.id);
+    if (!updatedSelected) {
+      setSelected(null);
+      return;
+    }
+    if (updatedSelected !== selected) {
+      setSelected(updatedSelected);
+    }
+  }, [videos, selected]);
+
   return (
     <div className="layout">
       <Sidebar
@@ -46,10 +70,11 @@ export default function App() {
         total={videos.length}
         selected={category}
         onSelect={setCategory}
+        onPipelineFinished={loadVideos}
       />
       <main className="main">
         <header className="header">
-          <h1 className="title">🎬 Saved Reels</h1>
+          <h1 className="title">🎬 Reelect Library</h1>
           <input
             className="search"
             placeholder="Search by summary, transcript or tag..."

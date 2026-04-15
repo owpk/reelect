@@ -8,3 +8,5 @@ saved_videos/
 download_log*
 bin/
 __pycache__
+viewer/frontend/node_modules/
+viewer/frontend/dist/

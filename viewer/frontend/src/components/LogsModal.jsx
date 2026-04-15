@@ -5,6 +5,8 @@ export default function LogsModal({ onClose }) {
   const [lines, setLines] = useState([]);
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState(null);
+  const [mode, setMode] = useState(null);
+  const [phase, setPhase] = useState("idle");
   const [lmStatus, setLmStatus] = useState(null);
   const endRef = useRef(null);
   const terminalRef = useRef(null);
@@ -48,6 +50,7 @@ export default function LogsModal({ onClose }) {
     es.onmessage = (e) => {
       if (e.data === "__done__") {
         setRunning(false);
+        setPhase("idle");
         es.close();
         esRef.current = null;
         return;
@@ -69,7 +72,16 @@ export default function LogsModal({ onClose }) {
         setLines(d.lines ?? []);
         setRunning(d.running ?? false);
         setLastRun(d.last_run ?? null);
-        if (d.running) connectStream();
+        fetch("/api/pipeline/status")
+          .then((r) => r.json())
+          .then((status) => {
+            setMode(status.mode ?? null);
+            setPhase(status.phase ?? "idle");
+            if (d.running) connectStream();
+          })
+          .catch(() => {
+            if (d.running) connectStream();
+          });
       })
       .catch(() => {});
 
@@ -85,7 +97,9 @@ export default function LogsModal({ onClose }) {
         .then((r) => r.json())
         .then((d) => {
           setRunning(d.running);
-          setLastRun(d.last_run);
+          setLastRun(d.last_run ?? null);
+          setMode(d.mode ?? null);
+          setPhase(d.phase ?? "idle");
           if (d.running) connectStream();
         })
         .catch(() => {});
@@ -106,6 +120,12 @@ export default function LogsModal({ onClose }) {
       return iso;
     }
   }
+
+  const phaseLabel =
+    phase === "downloading" ? "downloading" :
+    phase === "parsing" ? "parsing" :
+    phase === "analyzing" ? "analyzing" :
+    "idle";
 
   return (
     <div className="logs-overlay" onClick={onClose}>
@@ -147,6 +167,8 @@ export default function LogsModal({ onClose }) {
         <div className="logs-status-row">
           <span className={`logs-status-dot ${running ? "running" : "idle"}`} />
           <span className="logs-status-label">{running ? "Running..." : "Idle"}</span>
+          {mode && <span className="logs-last-run">mode: {mode}</span>}
+          {phase && <span className="logs-last-run">phase: {phaseLabel}</span>}
           {lastRun && !running && (
             <span className="logs-last-run">last: {formatTime(lastRun)}</span>
           )}

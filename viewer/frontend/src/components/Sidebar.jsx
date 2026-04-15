@@ -18,7 +18,13 @@ export function categoryColor(cat) {
   return CATEGORY_COLORS[cat] || "#888";
 }
 
-export default function Sidebar({ categories, total, selected, onSelect }) {
+export default function Sidebar({
+  categories,
+  total,
+  selected,
+  onSelect,
+  onPipelineFinished,
+}) {
   const sorted = Object.entries(categories).sort((a, b) => b[1] - a[1]);
 
   return (
@@ -44,7 +50,7 @@ export default function Sidebar({ categories, total, selected, onSelect }) {
         </button>
       ))}
       <div className="sidebar-divider" />
-      <PipelinePanel />
+      <PipelinePanel onFinished={onPipelineFinished} />
     </aside>
   );
 }
