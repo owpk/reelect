@@ -71,7 +71,7 @@ export default function PipelinePanel({ onFinished }) {
   }, [running]);
 
   function isValidInstagramUrl(value) {
-    return /^https?:\/\/(www\.)?instagram\.com\/(reel|reels)\/[^/?#]+/i.test(value.trim());
+    return /^https?:\/\/(www\.)?instagram\.com\/[^/?#]+/i.test(value.trim());
   }
 
   async function handleRunSaved() {
