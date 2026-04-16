@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import LogsModal from "./LogsModal.jsx";
-import SettingsModal from "./SettingsModal.jsx";
 import "./PipelinePanel.css";
+import SettingsModal from "./SettingsModal.jsx";
 
 const MODES = {
   saved: {
@@ -70,8 +70,8 @@ export default function PipelinePanel({ onFinished }) {
       .catch(() => {});
   }, [running]);
 
-  function isValidInstagramUrl(value) {
-    return /^https?:\/\/(www\.)?instagram\.com\/[^/?#]+/i.test(value.trim());
+  function isValidUrl(value) {
+    return /^https?:/i.test(value.trim());
   }
 
   async function handleRunSaved() {
@@ -93,8 +93,8 @@ export default function PipelinePanel({ onFinished }) {
 
   async function handleRunSingle() {
     const normalizedUrl = singleUrl.trim();
-    if (!isValidInstagramUrl(normalizedUrl)) {
-      setError("Enter a valid Instagram reel URL.");
+    if (!isValidUrl(normalizedUrl)) {
+      setError("Enter a valid URL.");
       return;
     }
 

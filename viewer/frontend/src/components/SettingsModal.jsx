@@ -133,7 +133,7 @@ export default function SettingsModal({ onClose }) {
 
   return (
     <div className="overlay">
-      <div className="modal modal-settings">
+      <div className="modal-settings">
         <button className="modal-close" onClick={onClose}>×</button>
         <div className="modal-content">
           <div className="settings-header">
