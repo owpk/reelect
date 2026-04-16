@@ -128,6 +128,34 @@ async def pipeline_stop():
         raise HTTPException(status_code=503, detail="Pipeline server unavailable")
 
 
+@app.delete("/api/videos/{video_id}")
+async def delete_video(video_id: str):
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.delete(f"{PIPELINE_URL}/videos/{video_id}", timeout=10)
+            if r.status_code == 404:
+                raise HTTPException(status_code=404, detail="Video not found")
+            return r.json()
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=503, detail="Pipeline server unavailable")
+
+
+@app.post("/api/videos/{video_id}/regenerate")
+async def regenerate_video(video_id: str):
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.post(f"{PIPELINE_URL}/videos/{video_id}/regenerate", timeout=30)
+            if r.status_code == 404:
+                raise HTTPException(status_code=404, detail="Video not found")
+            return r.json()
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=503, detail="Pipeline server unavailable")
+
+
 # ── Configuration API ────────────────────────────────────────────────────────
 
 @app.get("/api/config")

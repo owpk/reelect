@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Sidebar from "./components/Sidebar.jsx";
 import VideoGrid from "./components/VideoGrid.jsx";
 import Modal from "./components/Modal.jsx";
@@ -26,6 +26,25 @@ export default function App() {
 
   useEffect(() => {
     loadVideos();
+  }, []);
+
+  const handleDelete = useCallback(async (videoId) => {
+    try {
+      await fetch(`/api/videos/${videoId}`, { method: "DELETE" });
+      setVideos((prev) => prev.filter((v) => v.id !== videoId));
+    } catch (err) {
+      console.error("Failed to delete video:", err);
+    }
+  }, []);
+
+  const handleRegenerate = useCallback(async (videoId) => {
+    try {
+      await fetch(`/api/videos/${videoId}/regenerate`, { method: "POST" });
+      // Reload videos to show updated data
+      await loadVideos();
+    } catch (err) {
+      console.error("Failed to regenerate video:", err);
+    }
   }, []);
 
   const filtered = useMemo(() => {
@@ -79,7 +98,7 @@ export default function App() {
             className="search"
             placeholder="Search by summary, transcript or tag..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => setQuery(e.target)}
           />
         </header>
         {loading ? (
@@ -87,7 +106,12 @@ export default function App() {
         ) : filtered.length === 0 ? (
           <p className="empty">No videos found.</p>
         ) : (
-          <VideoGrid videos={filtered} onSelect={setSelected} />
+          <VideoGrid
+            videos={filtered}
+            onSelect={setSelected}
+            onDelete={handleDelete}
+            onRegenerate={handleRegenerate}
+          />
         )}
       </main>
       {selected && <Modal video={selected} onClose={() => setSelected(null)} />}

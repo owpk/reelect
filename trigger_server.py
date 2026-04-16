@@ -15,11 +15,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from config import load_env
+from reelect_pipeline.bootstrap import build_orchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +227,23 @@ async def stop():
         except ProcessLookupError:
             pass
     return {"status": "stopping"}
+
+
+@app.delete("/videos/{video_id}")
+async def delete_video(video_id: str):
+    orchestrator = build_orchestrator()
+    if orchestrator.delete_video(video_id):
+        return {"status": "deleted", "video_id": video_id}
+    raise HTTPException(status_code=404, detail="Video not found")
+
+
+@app.post("/videos/{video_id}/regenerate")
+async def regenerate_video(video_id: str):
+    orchestrator = build_orchestrator()
+    result = orchestrator.regenerate_video(video_id)
+    if result:
+        return {"status": "regenerated", "video_id": video_id}
+    raise HTTPException(status_code=404, detail="Video not found")
 
 
 @app.get("/status")

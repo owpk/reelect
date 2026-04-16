@@ -14,6 +14,10 @@ def main() -> None:
     run_single.add_argument("url")
     subparsers.add_parser("parse-pending")
     subparsers.add_parser("analyze-pending")
+    regenerate = subparsers.add_parser("run-regenerate")
+    regenerate.add_argument("video_id")
+    delete = subparsers.add_parser("delete-video")
+    delete.add_argument("video_id")
 
     args = parser.parse_args()
     orchestrator = build_orchestrator()
@@ -42,6 +46,21 @@ def main() -> None:
         return
     if args.command == "analyze-pending":
         orchestrator.run_analysis_pending()
+        return
+    if args.command == "run-regenerate":
+        print(f"Regenerating analysis for video: {args.video_id}", flush=True)
+        result = orchestrator.regenerate_video(args.video_id)
+        if result:
+            print(f"Regeneration completed for {args.video_id}", flush=True)
+        else:
+            print(f"Video not found: {args.video_id}", flush=True)
+        return
+    if args.command == "delete-video":
+        print(f"Deleting video: {args.video_id}", flush=True)
+        if orchestrator.delete_video(args.video_id):
+            print(f"Video deleted: {args.video_id}", flush=True)
+        else:
+            print(f"Video not found: {args.video_id}", flush=True)
         return
     raise SystemExit(f"Unsupported command: {args.command}")
 

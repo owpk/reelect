@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useCallback } from "react";
 import { categoryColor } from "./Sidebar.jsx";
 import "./VideoCard.css";
 
@@ -9,7 +9,7 @@ const ACTIONABLE_ICON = {
   resource: "🔗",
 };
 
-export default function VideoCard({ video, onSelect }) {
+export default function VideoCard({ video, onSelect, onDelete, onRegenerate }) {
   const videoRef = useRef(null);
   const { actionable } = video;
 
@@ -20,6 +20,16 @@ export default function VideoCard({ video, onSelect }) {
     v.pause();
     v.currentTime = 0;
   };
+
+  const handleDelete = useCallback((e) => {
+    e.stopPropagation();
+    onDelete?.(video.id);
+  }, [onDelete, video.id]);
+
+  const handleRegenerate = useCallback((e) => {
+    e.stopPropagation();
+    onRegenerate?.(video.id);
+  }, [onRegenerate, video.id]);
 
   return (
     <div
@@ -70,6 +80,15 @@ export default function VideoCard({ video, onSelect }) {
             ))}
           </div>
         )}
+
+        <div className="card-actions">
+          <button className="card-action-btn delete" onClick={handleDelete}>
+            🗑️ Delete
+          </button>
+          <button className="card-action-btn regenerate" onClick={handleRegenerate}>
+            🔄 Regenerate
+          </button>
+        </div>
       </div>
     </div>
   );

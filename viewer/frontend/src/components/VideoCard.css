@@ -124,3 +124,37 @@
   padding: 1px 5px;
   border-radius: 20px;
 }
+
+.card-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.card-action-btn {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+  background: var(--surface2);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.card-action-btn:hover {
+  background: #333;
+}
+
+.card-action-btn.delete:hover {
+  background: #8b3d3d;
+}
+
+.card-action-btn.regenerate:hover {
+  background: #3d6b8b;
+}
